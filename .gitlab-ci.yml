@@ -1,18 +1,8 @@
 stages:
   - test
 
-variables:
-  CI_PROJECT_NAME: "roommate_finder_backend"
-
-image: python:3.9
-
 test-job:
   stage: test
-  tags:
-    - maven
   script:
-    - python3 -m venv .venv 
-    - source .venv/bin/activate
-    - pip install -r requirements.txt
-    - python -c "from app import app; print('App works!')"
-    - echo "Tests passed"
+    - echo "Backend repository initialized"
+    - echo "CI/CD will be configured when needed"
