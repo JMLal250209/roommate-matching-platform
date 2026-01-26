@@ -1,0 +1,15 @@
+image: python:3.11
+
+stages:
+  - test
+
+before_script:
+  - pip install -r requirements.txt
+
+test:
+  stage: test
+  script:
+    - python -c "from app import app; print('App imported successfully')"
+  only:
+    - main
+    - merge_requests
