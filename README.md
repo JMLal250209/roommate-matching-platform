@@ -2,6 +2,25 @@
 
 # Frontend
 
+## Setup
+
+1. Go to the frontend folder:
+```bash
+cd frontend
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Run the dev server:
+```bash
+npm run dev
+```
+
+Open the app at http://localhost:5173
+
 # Backend
 
 ## Setup
