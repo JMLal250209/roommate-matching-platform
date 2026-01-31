@@ -4,6 +4,8 @@ stages:
 # Build Backend
 build_backend:
   stage: build
+  tags:
+    - docker  # Force use of Docker runner
   image: python:3.9
   script:
     - cd backend
@@ -13,6 +15,8 @@ build_backend:
 # Build Frontend
 build_frontend:
   stage: build
+  tags:
+    - docker  # Force use of Docker runner
   image: node:18
   script:
     - cd frontend
