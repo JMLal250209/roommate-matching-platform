@@ -17,7 +17,7 @@ build_frontend:
   stage: build
   tags:
     - docker  # Force use of Docker runner
-  image: node:18
+  image: node:20
   script:
     - cd frontend
     - npm install
