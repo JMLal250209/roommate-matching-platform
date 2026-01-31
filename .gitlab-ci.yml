@@ -1,8 +1,25 @@
 stages:
-  - test
+  - build
 
-test-job:
-  stage: test
+# Build Backend
+build_backend:
+  stage: build
+  tags:
+    - docker  # Force use of Docker runner
+  image: python:3.9
   script:
-    - echo "Backend repository initialized"
-    - echo "CI/CD will be configured when needed"
+    - cd backend
+    - pip install -r requirements.txt
+    - echo "Backend dependencies installed ✓"
+
+# Build Frontend
+build_frontend:
+  stage: build
+  tags:
+    - docker  # Force use of Docker runner
+  image: node:18
+  script:
+    - cd frontend
+    - npm install
+    - npm run build
+    - echo "Frontend built ✓"

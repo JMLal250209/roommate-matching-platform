@@ -1,0 +1,31 @@
+# Core framework
+flask==3.0.0
+flask-cors==4.0.0
+
+# AWS DynamoDB
+boto3==1.34.0
+botocore==1.34.0
+
+# HTTP requests for Daft API
+requests==2.31.0
+
+# Password hashing (for secure login)
+bcrypt==4.1.2
+# OR
+werkzeug==3.0.1  # Flask includes this, has password hashing utilities
+
+# JWT tokens for authentication (if you're using tokens)
+pyjwt==2.8.0
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Testing (development only)
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+moto[dynamodb]==5.0.0
+
+# Code quality (development only)
+flake8==7.0.0
+black==24.1.0
