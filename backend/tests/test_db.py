@@ -1,27 +1,36 @@
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
+import pytest
+from app import app  
+import boto3
+from botocore.exceptions import ClientError
 
-from db import get_all_users, create_user
-import uuid
-import pprint
+@pytest.fixture
+def client():
+    app.config['TESTING'] = True
+    with app.test_client() as client:
+        yield client
 
-pp = pprint.PrettyPrinter(indent=2)
 
-print("Initial users:")
-pp.pprint(get_all_users())
+def test_dynamodb_debug_endpoint(client):
+    """Check if /debug/dynamodb returns expected keys"""
+    response = client.get('/debug/dynamodb')
+    assert response.status_code == 200
 
-user1 = {
-    "userId": str(uuid.uuid4()),
-    "name": "Alice",
-    "email": "alice@example.com",
-    "budgetMin": 600,
-    "budgetMax": 900,
-    "preferredLocations": ["Dublin 2", "Dublin 4"],
-    "smoker": False,
-    "petFriendly": True
-}
+    data = response.get_json()
+    assert "dynamodb" in data
+    assert "table" in data
+    assert data["table"] == "Users"
+    # sampleItemCount should be present, even if 0
+    assert "sampleItemCount" in data
 
-create_user(user1)
-print("\nAfter adding Alice:")
-pp.pprint(get_all_users())
+
+def test_dynamodb_connection_directly():
+    """Directly test DynamoDB table connection"""
+    dynamodb = boto3.resource("dynamodb", region_name="eu-west-1")
+    table = dynamodb.Table("Users")
+
+    try:
+        response = table.scan(Limit=1)
+        # Should return dict with Count key
+        assert "Count" in response
+    except ClientError as e:
+        pytest.fail(f"DynamoDB connection failed: {e}")
