@@ -1,4 +1,4 @@
-import ShrimpLogo from "./assets/shrimp-logo.svg?react";
+// frontend/src/SignIn.jsx
 
 export default function SignIn() {
   return (
@@ -7,16 +7,14 @@ export default function SignIn() {
       <div className="flex w-full lg:w-1/2 flex-col justify-center px-6 py-12 lg:px-16">
         <div className="sm:mx-auto sm:w-full sm:max-w-sm text-center">
           <div className="flex flex-col items-center">
-            <ShrimpLogo className="h-12 w-auto text-indigo-500 mb-6" />
+            {/* 临时文字 Logo（替代 ShrimpLogo） */}
+            <div className="text-3xl font-bold text-indigo-400 mb-6">
+              SHRMP
+            </div>
+
             <h2 className="text-2xl font-bold tracking-tight">
               Sign in to your account
             </h2>
-            <p className="mt-2 text-sm text-gray-400">
-              Not a member?{" "}
-              <span className="text-indigo-400 cursor-pointer hover:underline">
-                Start a 14 day free trial
-              </span>
-            </p>
           </div>
         </div>
 
@@ -55,6 +53,7 @@ export default function SignIn() {
             </button>
           </form>
 
+          {/* 第三方登录 */}
           <div className="mt-8">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
