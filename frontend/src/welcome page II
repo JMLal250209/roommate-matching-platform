@@ -1,0 +1,70 @@
+export default function SignIn() {
+  return (
+    <div className="min-h-screen flex font-sans">
+      {/* 左侧：Welcome back 区域 */}
+      <div className="hidden lg:flex w-1/2 items-center justify-center bg-gradient-to-br from-teal-500 via-emerald-500 to-lime-400 px-16 text-white">
+        <div className="max-w-md">
+          <h1 className="text-4xl font-bold mb-4">Welcome back!</h1>
+          <p className="text-lg opacity-90 leading-relaxed">
+            Find student housing and compatible roommates in one place.
+            <br />
+            Sign in to continue your SHRMP profile.
+          </p>
+        </div>
+      </div>
+
+      {/* 右侧：登录表单 */}
+      <div className="flex w-full lg:w-1/2 items-center justify-center bg-white px-6 py-12">
+        <div className="w-full max-w-sm">
+          {/* 返回箭头（装饰） */}
+          <div className="mb-6 text-gray-400 text-xl cursor-pointer">←</div>
+
+          <h2 className="text-3xl font-semibold text-gray-800 mb-2">
+            Sign In
+          </h2>
+          <p className="text-sm text-gray-500 mb-8">
+            Please enter your login information or{" "}
+            <span className="text-teal-500 cursor-pointer hover:underline">
+              click here
+            </span>{" "}
+            to registration
+          </p>
+
+          <form className="space-y-6">
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">
+                Username
+              </label>
+              <input
+                type="text"
+                className="w-full border-b border-gray-300 focus:border-teal-500 focus:outline-none py-2"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">
+                Password
+              </label>
+              <input
+                type="password"
+                className="w-full border-b border-gray-300 focus:border-teal-500 focus:outline-none py-2"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <input type="checkbox" className="accent-teal-500" />
+              <span>Remember me</span>
+            </div>
+
+            <button
+              type="submit"
+              className="mt-6 w-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-600 py-3 text-white font-semibold hover:opacity-90 transition"
+            >
+              Log In
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
