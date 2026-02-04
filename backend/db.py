@@ -1,26 +1,26 @@
 import boto3
 import uuid
-from datetime import datetime
-from botocore.exceptions import ClientError
 from datetime import datetime, timezone
 
 REGION = "eu-west-1"
-TABLE_NAME = "Users"
+TABLE_NAME = "HousemateAppUsers"
 
+# Use default credentials from AWS CLI (~/.aws/credentials)
+session = boto3.Session()
 
 def create_table_if_not_exists():
-    dynamodb = boto3.client("dynamodb", region_name=REGION)
+    dynamodb_client = session.client("dynamodb", region_name=REGION)
 
     try:
-        dynamodb.describe_table(TableName=TABLE_NAME)
+        dynamodb_client.describe_table(TableName=TABLE_NAME)
         print("Table already exists.")
         return
-    except dynamodb.exceptions.ResourceNotFoundException:
+    except dynamodb_client.exceptions.ResourceNotFoundException:
         pass
 
-    print("Creating Users table...")
+    print("Creating HousemateAppUsers table...")
 
-    dynamodb.create_table(
+    dynamodb_client.create_table(
         TableName=TABLE_NAME,
         KeySchema=[
             {"AttributeName": "userId", "KeyType": "HASH"},
@@ -31,13 +31,13 @@ def create_table_if_not_exists():
         BillingMode="PAY_PER_REQUEST",
     )
 
-    waiter = dynamodb.get_waiter("table_exists")
+    waiter = dynamodb_client.get_waiter("table_exists")
     waiter.wait(TableName=TABLE_NAME)
-    print("Users table is ready.")
+    print("HousemateAppUsers table is ready.")
 
 
-def get_table():
-    dynamodb = boto3.resource("dynamodb", region_name=REGION)
+def get_users_table():
+    dynamodb = session.resource("dynamodb", region_name=REGION)
     return dynamodb.Table(TABLE_NAME)
 
 
@@ -60,12 +60,3 @@ def create_user(table, email, name):
 def list_users(table):
     response = table.scan()
     return response.get("Items", [])
-
-def get_users_table():
-    dynamodb = boto3.resource("dynamodb", region_name="eu-west-1")
-    return dynamodb.Table("Users")
-
-
-
-
-
