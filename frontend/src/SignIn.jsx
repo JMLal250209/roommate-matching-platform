@@ -1,6 +1,23 @@
 // frontend/src/SignIn.jsx
+import { useNavigate } from "react-router-dom";
 
 export default function SignIn() {
+  const navigate = useNavigate();
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // 目前只是占位：后面接后端/认证时再改
+    alert("Sign in is a placeholder for now.");
+  };
+
+  const handleGoogle = () => {
+    alert("Google sign-in is a placeholder for now.");
+  };
+
+  const handleGitHub = () => {
+    alert("GitHub sign-in is a placeholder for now.");
+  };
+
   return (
     <div className="min-h-screen flex bg-gray-900 text-white">
       {/* 左侧：登录表单 */}
@@ -15,11 +32,24 @@ export default function SignIn() {
             <h2 className="text-2xl font-bold tracking-tight">
               Sign in to your account
             </h2>
+
+            {/* ✅ 新增：Sign up 跳转 */}
+            <p className="mt-2 text-sm text-gray-400">
+              Don&apos;t have an account?{" "}
+              <button
+                type="button"
+                onClick={() => navigate("/signup")}
+                className="text-indigo-400 hover:underline"
+              >
+                Sign up
+              </button>
+            </p>
           </div>
         </div>
 
         <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-          <form className="space-y-6">
+          {/* ✅ 改：阻止 submit 刷新页面 */}
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label className="block text-sm font-medium text-gray-200">
                 Email address
@@ -35,9 +65,15 @@ export default function SignIn() {
                 <label className="block text-sm font-medium text-gray-200">
                   Password
                 </label>
-                <span className="text-sm text-indigo-400 cursor-pointer hover:underline">
+
+                {/* ✅ 可选：也可以做成跳转，例如 /forgot */}
+                <button
+                  type="button"
+                  className="text-sm text-indigo-400 cursor-pointer hover:underline"
+                  onClick={() => alert("Forgot password is a placeholder.")}
+                >
                   Forgot password?
-                </span>
+                </button>
               </div>
               <input
                 type="password"
@@ -67,10 +103,20 @@ export default function SignIn() {
             </div>
 
             <div className="mt-6 grid grid-cols-2 gap-3">
-              <button className="flex items-center justify-center rounded-md bg-white/5 py-2 hover:bg-white/10">
+              {/* ✅ 改：加 onClick + type="button" 防止触发表单行为 */}
+              <button
+                type="button"
+                onClick={handleGoogle}
+                className="flex items-center justify-center rounded-md bg-white/5 py-2 hover:bg-white/10"
+              >
                 Google
               </button>
-              <button className="flex items-center justify-center rounded-md bg-white/5 py-2 hover:bg-white/10">
+
+              <button
+                type="button"
+                onClick={handleGitHub}
+                className="flex items-center justify-center rounded-md bg-white/5 py-2 hover:bg-white/10"
+              >
                 GitHub
               </button>
             </div>
