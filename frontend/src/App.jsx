@@ -1,7 +1,13 @@
-// frontend/src/App.jsx
-// import SignIn from "./SignIn.jsx";
-import ProfileView from "./pages/ProfileView.jsx";
+import { useState } from "react";
+import LandingPage from "./LandingPage.jsx";
+import SignIn from "./SignIn.jsx";
 
 export default function App() {
-  return <ProfileView />;
+  const [isSignedIn, setIsSignedIn] = useState(false);
+
+  if (isSignedIn) {
+    return <LandingPage />;
+  }
+
+  return <SignIn onSignIn={() => setIsSignedIn(true)} />;
 }
