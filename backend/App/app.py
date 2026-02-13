@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from functools import wraps
 from datetime import datetime, timezone
 
@@ -6,8 +7,13 @@ import jwt
 import requests
 import boto3
 from botocore.exceptions import ClientError
+from db import get_users_table, create_user, list_users, create_table_if_not_exists
+
+print("### THIS IS THE CORRECT app.py ###")
 
 app = Flask(__name__)
+CORS(app)
+create_table_if_not_exists()
 
 # ===== Cognito configuration =====
 COGNITO_REGION = "eu-north-1"
@@ -308,6 +314,9 @@ def update_user(user_id):
             "error": "User not found"
         }), 404
 
+@app.route('/health')
+def health():
+    return jsonify({'status': 'ok'})
 
 @app.route('/', methods=['GET'])
 def home():
@@ -414,6 +423,23 @@ def update_preferences():
 
     return jsonify({"success": True, "data": updated.get("preferences", {})}), 200
 
+@app.route("/auth/test", methods=["POST"])
+def auth_test():
+    data = request.json
+    id_token = data.get("id_token")
+
+    if not id_token:
+        return {"error": "missing id_token"}, 400
+
+    try:
+        payload = verify_jwt(id_token)
+        return {
+            "message": "token valid",
+            "user": payload["sub"],
+            "email": payload.get("email")
+        }
+    except Exception as e:
+        return {"error": str(e)}, 401
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
