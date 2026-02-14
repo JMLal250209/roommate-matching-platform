@@ -14,7 +14,7 @@ app = Flask(__name__)
 CORS(app)
 create_table_if_not_exists()
 
-# ===== Cognito configuration =====
+# ====== Cognito configuration ======
 COGNITO_REGION = "eu-west-1"
 COGNITO_USER_POOL_ID = "eu-west-1_VD22hpVPA"
 COGNITO_APP_CLIENT_ID = "6blkd9ld1fb05ulmj8p8s5g9tb"  # Audience (aud) to validate
