@@ -1,112 +1,47 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from flask_cors import CORS
-from datetime import datetime, timezone
+from db import create_tables_if_not_exist
 
-from db import (
-    create_table_if_not_exists,
-    get_users_table,
-    create_user,
-    list_users,
-    get_interests_table,
-    register_property_interest,
-    get_user_interests,
-    get_pending_interests_for_property,
-    update_interest_status,
-)
+# Import blueprints
+from routes.users import users_bp
+from routes.properties import properties_bp
+from routes.interests import interests_bp
+from routes.matching import matching_bp
+from routes.info import info_bp
 
 app = Flask(__name__)
 CORS(app)
 
+# Register blueprints
+app.register_blueprint(users_bp)
+app.register_blueprint(properties_bp)
+app.register_blueprint(interests_bp)
+app.register_blueprint(matching_bp)
+app.register_blueprint(info_bp)
+
 # Ensure tables exist at startup
-create_table_if_not_exists()
+create_tables_if_not_exist()
 
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok"})
+    return jsonify({"status": "ok", "message": "Housemate matching API is running"}), 200
 
 
-# =========================
-# USERS
-# =========================
-
-@app.route("/api/users", methods=["POST"])
-def create_user_route():
-    data = request.get_json() or {}
-    name = data.get("name")
-    email = data.get("email")
-
-    if not name or not email:
-        return jsonify({"error": "name and email required"}), 400
-
-    users_table = get_users_table()
-    user_id = create_user(users_table, name, email)
-
-    return jsonify({"message": "User created", "userId": user_id}), 201
-
-
-@app.route("/api/users", methods=["GET"])
-def list_users_route():
-    users_table = get_users_table()
-    return jsonify(list_users(users_table))
-
-
-# =========================
-# INTERESTS
-# =========================
-
-@app.route("/api/interests", methods=["POST"])
-def create_interest():
-    data = request.get_json() or {}
-    user_id = data.get("userId")
-    property_id = data.get("propertyId")
-
-    if not user_id or not property_id:
-        return jsonify({"error": "userId and propertyId required"}), 400
-
-    interests_table = get_interests_table()
-    interest_id = register_property_interest(interests_table, user_id, property_id)
-
-    return jsonify({"message": "Interest registered", "interestId": interest_id}), 201
-
-
-@app.route("/api/interests/user/<user_id>", methods=["GET"])
-def get_user_interests_route(user_id):
-    interests_table = get_interests_table()
-    return jsonify(get_user_interests(interests_table, user_id))
-
-
-@app.route("/api/interests/property/<property_id>/pending", methods=["GET"])
-def get_pending_property_interests(property_id):
-    interests_table = get_interests_table()
-    return jsonify(get_pending_interests_for_property(interests_table, property_id))
-
-
-@app.route("/api/interests/<interest_id>", methods=["PATCH"])
-def update_interest(interest_id):
-    data = request.get_json() or {}
-    status = data.get("status")
-    match_group_id = data.get("matchedGroupId")
-
-    if not status:
-        return jsonify({"error": "status required"}), 400
-
-    interests_table = get_interests_table()
-
-    matched_at = None
-    if status == "matched":
-        matched_at = datetime.now(timezone.utc).isoformat()
-
-    updated = update_interest_status(
-        interests_table,
-        interest_id,
-        status,
-        match_group_id,
-        matched_at,
-    )
-
-    return jsonify({"message": "Interest updated", "item": updated})
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({
+        "message": "Housemate Matching API",
+        "version": "1.0",
+        "endpoints": {
+            "users": "/api/users",
+            "properties": "/api/properties",
+            "interests": "/api/interests",
+            "matching": "/api/match",
+            "info": "/api/animals"
+        }
+    }), 200
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host="0.0.0.0", port=5001)
