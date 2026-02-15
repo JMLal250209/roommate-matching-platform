@@ -67,6 +67,7 @@ def create_user(table, email, name, profile_data):
 def update_user_profile(table, user_id, profile_updates):
     """
     Update user profile and recalculate animal archetype if personality changes
+    FIXED: Handles reserved keywords by storing profile as nested object
     
     Args:
         table: DynamoDB users table
@@ -83,31 +84,37 @@ def update_user_profile(table, user_id, profile_updates):
     if not current_user:
         raise ValueError(f"User {user_id} not found")
     
+    # Get current profile or empty dict
+    current_profile = current_user.get("profile", {})
+    
+    # Merge updates with current profile
+    updated_profile = {**current_profile, **profile_updates}
+    
     # Check if personality-related fields are being updated
     personality_fields = {"wakeTime", "bedtime", "socialPreference", "cleanliness"}
     personality_changed = bool(personality_fields & set(profile_updates.keys()))
+    
+    # Build update expression
+    update_expression_parts = ["profile = :profile", "updatedAt = :updatedAt"]
+    expression_attribute_values = {
+        ":profile": updated_profile,
+        ":updatedAt": datetime.now(timezone.utc).isoformat()
+    }
     
     # If personality changed, recalculate animal archetype
     if personality_changed:
         # Build profile for archetype calculation
         profile_for_archetype = {
-            "wakeTime": profile_updates.get("wakeTime", current_user.get("wakeTime")),
-            "bedtime": profile_updates.get("bedtime", current_user.get("bedtime")),
-            "socialPreference": profile_updates.get("socialPreference", current_user.get("socialPreference")),
-            "cleanliness": profile_updates.get("cleanliness", current_user.get("cleanliness")),
+            "wakeTime": updated_profile.get("wakeTime"),
+            "bedtime": updated_profile.get("bedtime"),
+            "socialPreference": updated_profile.get("socialPreference"),
+            "cleanliness": updated_profile.get("cleanliness"),
         }
         
         # Recalculate animal archetype
         new_animal = assign_animal_archetype(profile_for_archetype)
-        profile_updates["animal_archetype"] = new_animal
-    
-    # Build update expression
-    update_expression_parts = []
-    expression_attribute_values = {}
-    
-    for key, value in profile_updates.items():
-        update_expression_parts.append(f"{key} = :{key}")
-        expression_attribute_values[f":{key}"] = value
+        update_expression_parts.append("animal_archetype = :animal")
+        expression_attribute_values[":animal"] = new_animal
     
     update_expression = "SET " + ", ".join(update_expression_parts)
     
