@@ -1,6 +1,18 @@
 // frontend/src/SignIn.jsx
 
+import { useNavigate } from "react-router-dom";
+
 export default function SignIn() {
+  const navigate = useNavigate();
+
+  function handleSubmit(e) {
+    e.preventDefault();
+
+    // For now, just redirect to create profile page
+    // Later you can add real authentication here
+    navigate("/create-profile");
+  }
+
   return (
     <div className="min-h-screen flex bg-gray-900 text-white">
       {/* 左侧：登录表单 */}
@@ -19,7 +31,7 @@ export default function SignIn() {
         </div>
 
         <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-          <form className="space-y-6">
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label className="block text-sm font-medium text-gray-200">
                 Email address
