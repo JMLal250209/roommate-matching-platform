@@ -1,10 +1,12 @@
-from flask import Blueprint
-from flask import Flask, jsonify
+from flask import Blueprint, jsonify
 from matching_algorithm import ANIMAL_PROFILES, COMPATIBLE_ANIMALS  
+
 info_bp = Blueprint("info", __name__)
+
 
 @info_bp.route('/api/animals', methods=['GET'])
 def get_animal_archetypes():
+    """Get all animal archetypes and their profiles (PUBLIC)"""
     return jsonify({
         "success": True,
         "data": ANIMAL_PROFILES
@@ -13,6 +15,7 @@ def get_animal_archetypes():
 
 @info_bp.route('/api/animals/<string:animal>/compatible', methods=['GET'])
 def get_compatible_animals(animal):
+    """Get compatible animals for a specific archetype (PUBLIC)"""
     if animal not in COMPATIBLE_ANIMALS:
         return jsonify({
             "success": False,

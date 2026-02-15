@@ -21,14 +21,14 @@ matching_bp = Blueprint("matching", __name__)
 
 @matching_bp.route('/api/properties/<string:property_id>/register-interest', methods=['POST'])
 def register_interest(property_id):
-
+    """Register interest in a property and get initial matches"""
     try:
-        data = request.get_json()
-        user_id = data.get("userId")
-        budget = data.get("budget")  # Optional per-property budget
+        # Use authenticated user from app-level auth
+        user_id = request.user['userId']
         
-        if not user_id:
-            return jsonify({"success": False, "error": "userId is required"}), 400
+        # Optional budget from request body
+        data = request.get_json() or {}
+        budget = data.get("budget")
         
         users_table = get_users_table()
         properties_table = get_properties_table()
@@ -59,7 +59,7 @@ def register_interest(property_id):
         required_roommates = property_data.get("required_roommates", 2)
         total_interested = len(interested_user_ids) + 1  # +1 for the current user
         
-        # ✅ ONLY check matches if enough people are interested
+        # Only check matches if enough people are interested
         if total_interested < required_roommates:
             return jsonify({
                 "success": True,
@@ -118,9 +118,14 @@ def register_interest(property_id):
 
 @matching_bp.route('/api/match/user/<string:user_id>/property/<string:property_id>', methods=['GET'])
 def get_matches_for_user_property(user_id, property_id):
-    """
-    Get matches for a user who has already registered interest in a property
-    """
+    """Get matches for a user who has already registered interest in a property"""
+    # Security: Users can only view their own matches
+    if request.user['userId'] != user_id:
+        return jsonify({
+            "success": False,
+            "error": "Unauthorized: You can only view your own matches"
+        }), 403
+    
     try:
         users_table = get_users_table()
         properties_table = get_properties_table()
@@ -153,7 +158,7 @@ def get_matches_for_user_property(user_id, property_id):
         required_roommates = property_data.get("required_roommates", 2)
         total_interested = len(interested_user_ids) + 1  # +1 for current user
 
-        # ✅ ONLY check matches if enough people are interested
+        # Only check matches if enough people are interested
         if total_interested < required_roommates:
             return jsonify({
                 "success": True,
@@ -216,11 +221,6 @@ def check_match_complete(property_id):
     """
     Check if a property has a complete group of compatible users
     Used by landlords or system to identify when a property has matched
-    
-    Request body (optional):
-        {
-            "min_compatibility_threshold": 60.0
-        }
     """
     try:
         users_table = get_users_table()
@@ -250,7 +250,7 @@ def check_match_complete(property_id):
         # Check for complete match
         required_roommates = property_data.get("required_roommates", 2)
         is_complete, best_group = check_property_match_complete(
-            interested_users,  # ✅ Fixed: removed property_id parameter
+            interested_users,
             required_roommates,
             min_threshold
         )
@@ -304,10 +304,7 @@ def check_match_complete(property_id):
 
 @matching_bp.route('/api/properties/<string:property_id>/match-groups', methods=['GET'])
 def get_property_match_groups(property_id):
-    """
-    Get all possible compatible groups for a property
-    Useful for landlords to see potential roommate combinations
-    """
+    """Get all possible compatible groups for a property"""
     try:
         users_table = get_users_table()
         properties_table = get_properties_table()
@@ -371,10 +368,14 @@ def get_property_match_groups(property_id):
 
 @matching_bp.route('/api/user/<string:user_id>/interests', methods=['GET'])
 def get_user_property_interests(user_id):
-    """
-    Get all properties a user has registered interest in
-    with their match results for each property
-    """
+    """Get all properties a user has registered interest in with match results"""
+    # Security: Users can only view their own interests
+    if request.user['userId'] != user_id:
+        return jsonify({
+            "success": False,
+            "error": "Unauthorized: You can only view your own interests"
+        }), 403
+    
     try:
         users_table = get_users_table()
         properties_table = get_properties_table()
@@ -405,7 +406,7 @@ def get_user_property_interests(user_id):
             required_roommates = property_data.get("required_roommates", 2)
             total_interested = len(other_user_ids) + 1
             
-            # ✅ ONLY calculate matches if enough people
+            # Only calculate matches if enough people
             compatible = []
             if total_interested >= required_roommates:
                 # Get full user objects

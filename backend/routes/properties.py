@@ -1,7 +1,8 @@
-from flask import Blueprint
+from flask import Blueprint, jsonify, request
 from db import get_properties_table, create_property
-from flask import jsonify, request
+
 properties_bp = Blueprint("properties", __name__)
+
 
 @properties_bp.route('/api/properties', methods=['GET'])
 def get_properties():
