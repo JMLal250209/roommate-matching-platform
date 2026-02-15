@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from functools import wraps
@@ -9,11 +10,23 @@ import boto3
 from botocore.exceptions import ClientError
 from db import get_users_table, create_user, list_users, create_table_if_not_exists
 
+=======
+from flask import Flask, jsonify
+from flask_cors import CORS
+from db import create_tables_if_not_exist
+
+# Import blueprints
+from routes.users import users_bp
+from routes.properties import properties_bp
+from routes.interests import interests_bp
+from routes.matching import matching_bp
+from routes.info import info_bp
+>>>>>>> origin/main
 
 app = Flask(__name__)
 CORS(app)
-create_table_if_not_exists()
 
+<<<<<<< HEAD
 # ====== Cognito configuration ======
 COGNITO_REGION = "eu-west-1"
 COGNITO_USER_POOL_ID = "eu-west-1_VD22hpVPA"
@@ -314,26 +327,48 @@ def update_user(user_id):
         }), 404
 
 @app.route('/health')
-def health():
-    return jsonify({'status': 'ok'})
+=======
+# Register blueprints
+app.register_blueprint(users_bp)
+app.register_blueprint(properties_bp)
+app.register_blueprint(interests_bp)
+app.register_blueprint(matching_bp)
+app.register_blueprint(info_bp)
 
-@app.route('/', methods=['GET'])
+# Ensure tables exist at startup
+create_tables_if_not_exist()
+
+
+@app.route("/health", methods=["GET"])
+>>>>>>> origin/main
+def health():
+    return jsonify({"status": "ok", "message": "Housemate matching API is running"}), 200
+
+
+@app.route("/", methods=["GET"])
 def home():
-    """
-    Home endpoint with API documentation
-    """
     return jsonify({
-        "message": "User Management API",
+        "message": "Housemate Matching API",
+        "version": "1.0",
         "endpoints": {
+<<<<<<< HEAD
             "GET /api/users": "Get all users",
             "GET /api/users/<id>": "Get user by ID",
             "POST /api/users": "Create new user (body: {name, email})",
             "PUT /api/users/<id>": "Update user by ID (body: {name, email})",
             "DELETE /api/users/<id>": "Delete user by ID"
+=======
+            "users": "/api/users",
+            "properties": "/api/properties",
+            "interests": "/api/interests",
+            "matching": "/api/match",
+            "info": "/api/animals"
+>>>>>>> origin/main
         }
     }), 200
 
 
+<<<<<<< HEAD
 # ===== Protected Endpoint (Cognito JWT required) =====
 @app.route("/api/me", methods=["GET"])
 @login_required
@@ -442,3 +477,7 @@ def auth_test():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
+=======
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5001)
+>>>>>>> origin/main
