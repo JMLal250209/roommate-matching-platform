@@ -1,25 +1,133 @@
 stages:
   - build
+  - lint
+  - test
+  - security
 
+# -----------------------
 # Build Backend
+# -----------------------
 build_backend:
   stage: build
   tags:
-    - docker  # Force use of Docker runner
+    - docker
   image: python:3.9
   script:
     - cd backend
     - pip install -r requirements.txt
     - echo "Backend dependencies installed ✓"
 
+# -----------------------
 # Build Frontend
+# -----------------------
 build_frontend:
   stage: build
   tags:
-    - docker  # Force use of Docker runner
+    - docker
   image: node:20
   script:
     - cd frontend
     - npm install
     - npm run build
     - echo "Frontend built ✓"
+
+# -----------------------
+# Lint Backend
+# -----------------------
+lint_backend:
+  stage: lint
+  tags:
+    - docker
+  image: python:3.9
+  allow_failure: true
+  script:
+    - cd backend
+    - pip install flake8 pylint
+    - echo "Running flake8..."
+    - flake8 . --max-line-length=120 --exclude=venv,__pycache__ || true
+    - echo "Running pylint..."
+    - pylint **/*.py --max-line-length=120 || true
+
+# -----------------------
+# Lint Frontend
+# -----------------------
+lint_frontend:
+  stage: lint
+  tags:
+    - docker
+  image: node:20
+  allow_failure: true
+  script:
+    - cd frontend
+    - npm install
+    - if grep -q '"lint"' package.json; then npm run lint; else echo "No lint script found, skipping..."; fi
+
+# -----------------------
+# Test Backend
+# -----------------------
+test_backend:
+  stage: test
+  tags:
+    - docker
+  image: python:3.9
+  script:
+    - cd backend
+    - pip install -r requirements.txt
+    - pip install pytest pytest-cov boto3
+    - echo "Running backend tests..."
+    - pytest --cov=. --cov-report=term --cov-report=xml --cov-report=html -v
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: backend/coverage.xml
+    paths:
+      - backend/htmlcov/
+    expire_in: 1 week
+
+# -----------------------
+# Test Frontend
+# -----------------------
+test_frontend:
+  stage: test
+  tags:
+    - docker
+  image: node:20
+  allow_failure: true
+  script:
+    - cd frontend
+    - npm install
+    - if grep -q '"test"' package.json; then npm run test; else echo "No test script found yet"; fi
+
+# -----------------------
+# Security Backend
+# -----------------------
+security_backend:
+  stage: security
+  tags:
+    - docker
+  image: python:3.9
+  allow_failure: true
+  script:
+    - cd backend
+    - pip install bandit safety
+    - echo "Checking for known vulnerabilities..."
+    - safety check || true
+    - echo "Running security linting..."
+    - bandit -r . || true
+
+# -----------------------
+# Security Frontend
+# -----------------------
+security_frontend:
+  stage: security
+  tags:
+    - docker
+  image: node:20
+  allow_failure: true
+  script:
+    - cd frontend
+    - npm install
+    - echo "Running npm audit..."
+    - npm audit --audit-level=high || true
