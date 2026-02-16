@@ -75,8 +75,9 @@ test_backend:
     - pip install -r requirements.txt
     - pip install pytest pytest-cov boto3
     - echo "Running backend tests..."
+    - export PYTHONPATH=$PWD
     - pytest --cov=. --cov-report=term --cov-report=xml --cov-report=html -v
-  coverage: '/TOTAL.*\s+(\d+%)$/'
+  coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)/'
   artifacts:
     reports:
       coverage_report:
