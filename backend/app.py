@@ -6,7 +6,9 @@ import boto3
 
 app = Flask(__name__)
 CORS(app)
-create_table_if_not_exists()
+if __name__ == "__main__":
+ create_table_if_not_exists()
+app.run()
 
 @app.route('/health')
 def health():
