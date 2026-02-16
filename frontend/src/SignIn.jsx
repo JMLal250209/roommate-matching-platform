@@ -1,27 +1,41 @@
-export default function SignIn({ onSignIn }) {
-  const handleSubmit = (event) => {
-    event.preventDefault();
+// frontend/src/SignIn.jsx
 
-    if (onSignIn) {
-      onSignIn();
-    }
-  };
+import { useNavigate } from "react-router-dom";
+
+export default function SignIn() {
+  const navigate = useNavigate();
+
+  function handleSubmit(e) {
+    e.preventDefault();
+
+    // For now, just redirect to create profile page
+    // Later you can add real authentication here
+    navigate("/create-profile");
+  }
 
   return (
     <div className="min-h-screen flex bg-gray-900 text-white">
+      {/* 左侧：登录表单 */}
       <div className="flex w-full lg:w-1/2 flex-col justify-center px-6 py-12 lg:px-16">
         <div className="sm:mx-auto sm:w-full sm:max-w-sm text-center">
           <div className="flex flex-col items-center">
-            <div className="text-3xl font-bold text-indigo-400 mb-6">SHRMP</div>
+            {/* 临时文字 Logo（替代 ShrimpLogo） */}
+            <div className="text-3xl font-bold text-indigo-400 mb-6">
+              SHRMP
+            </div>
 
-            <h2 className="text-2xl font-bold tracking-tight">Sign in to your account</h2>
+            <h2 className="text-2xl font-bold tracking-tight">
+              Sign in to your account
+            </h2>
           </div>
         </div>
 
         <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-sm font-medium text-gray-200">Email address</label>
+              <label className="block text-sm font-medium text-gray-200">
+                Email address
+              </label>
               <input
                 type="email"
                 className="mt-2 block w-full rounded-md bg-white/5 px-3 py-2 text-white outline outline-1 outline-white/10 focus:outline-indigo-500"
@@ -30,7 +44,9 @@ export default function SignIn({ onSignIn }) {
 
             <div>
               <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-gray-200">Password</label>
+                <label className="block text-sm font-medium text-gray-200">
+                  Password
+                </label>
                 <span className="text-sm text-indigo-400 cursor-pointer hover:underline">
                   Forgot password?
                 </span>
@@ -49,13 +65,16 @@ export default function SignIn({ onSignIn }) {
             </button>
           </form>
 
+          {/* 第三方登录 */}
           <div className="mt-8">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-white/10" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="bg-gray-900 px-2 text-gray-400">Or continue with</span>
+                <span className="bg-gray-900 px-2 text-gray-400">
+                  Or continue with
+                </span>
               </div>
             </div>
 
@@ -71,17 +90,19 @@ export default function SignIn({ onSignIn }) {
         </div>
       </div>
 
+      {/* 右侧：Welcome Back 介绍 */}
       <div className="hidden lg:flex lg:w-1/2 bg-gray-800 items-center justify-center px-12">
         <div className="max-w-md">
-          <h1 className="text-3xl font-bold mb-4">Welcome back</h1>
+          <h1 className="text-3xl font-bold mb-4">
+            Welcome back 👋
+          </h1>
           <p className="text-gray-300 leading-relaxed">
-            SHRMP is a student housing and roommate matching platform designed to help students
-            find both accommodation and compatible roommates.
-            <br />
-            <br />
-            By using intelligent matching based on lifestyle preferences, academic schedules,
-            and personal interests, SHRMP makes shared living simpler, smarter, and more
-            comfortable.
+            SHRMP is a student housing and roommate matching platform designed
+            to help students find both accommodation and compatible roommates.
+            <br /><br />
+            By using intelligent matching based on lifestyle preferences,
+            academic schedules, and personal interests, SHRMP makes shared
+            living simpler, smarter, and more comfortable.
           </p>
         </div>
       </div>
