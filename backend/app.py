@@ -202,6 +202,26 @@ def delete_user(user_id):
             "error": str(e)
         }), 500
 
-
 if __name__ == '__main__':
     app.run(debug=True)
+
+@app.route("/debug/dynamodb")
+def debug_dynamodb():
+    try:
+        table = get_users_table()
+        response = table.scan(Limit=1)
+
+        return jsonify({
+            "dynamodb": "connected",
+            "table": table.name,
+            "sampleItemCount": response.get("Count", 0)
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "dynamodb": "error",
+            "table": None,
+            "sampleItemCount": 0,
+            "error": str(e)
+        }), 200
+

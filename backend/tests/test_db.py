@@ -18,7 +18,7 @@ def test_dynamodb_debug_endpoint(client):
     data = response.get_json()
     assert "dynamodb" in data
     assert "table" in data
-    assert data["table"] == "Users"
+    assert data["table"] == "HousemateAppUsers"
     # sampleItemCount should be present, even if 0
     assert "sampleItemCount" in data
 
@@ -26,7 +26,7 @@ def test_dynamodb_debug_endpoint(client):
 def test_dynamodb_connection_directly():
     """Directly test DynamoDB table connection"""
     dynamodb = boto3.resource("dynamodb", region_name="eu-west-1")
-    table = dynamodb.Table("Users")
+    table = dynamodb.Table("HousemateAppUsers")
 
     try:
         response = table.scan(Limit=1)
