@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-export default function PropertyDetails({ onBack }) {
+export default function PropertyDetails() {
+  const navigate = useNavigate();
+  const { state } = useLocation();
+  const house = state?.house;
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
 
@@ -144,7 +148,7 @@ export default function PropertyDetails({ onBack }) {
           padding: '40px 40px 40px'
         }}>
           {/* Back Button */}
-          <button onClick={onBack} style={{
+          <button onClick={() => navigate('/landing')} style={{
             background: 'none',
             border: 'none',
             display: 'flex',
@@ -269,7 +273,7 @@ export default function PropertyDetails({ onBack }) {
                   margin: '0 0 12px 0',
                   letterSpacing: '-0.5px'
                 }}>
-                  {property.title}
+                  {house?.title ?? property.title}
                 </h1>
                 <p style={{
                   fontSize: '16px',
@@ -279,7 +283,7 @@ export default function PropertyDetails({ onBack }) {
                   alignItems: 'center',
                   gap: '6px'
                 }}>
-                  <span>📍</span> {property.address}
+                  <span>📍</span> {house?.location ?? property.address}
                 </p>
               </div>
               <button style={{
@@ -412,7 +416,7 @@ export default function PropertyDetails({ onBack }) {
             }}></div>
 
             <div style={{ position: 'relative', zIndex: 1 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <div style={{ marginBottom: '24px' }}>
                 <h2 style={{
                   fontSize: '28px',
                   fontWeight: '700',
@@ -420,18 +424,6 @@ export default function PropertyDetails({ onBack }) {
                 }}>
                   Your Roommate Matches
                 </h2>
-                <div style={{
-                  background: 'rgba(255,255,255,0.25)',
-                  padding: '12px 24px',
-                  borderRadius: '30px',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255,255,255,0.3)'
-                }}>
-                  <span style={{ fontSize: '32px', fontWeight: '700' }}>{property.roommates.matchScore}%</span>
-                  <div style={{ fontSize: '11px', opacity: 0.9, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Match Score
-                  </div>
-                </div>
               </div>
 
               <p style={{
@@ -692,9 +684,8 @@ export default function PropertyDetails({ onBack }) {
                 color: '#0f172a',
                 letterSpacing: '-1px'
               }}>
-                €{property.rent_per_month}
+                {house?.rent ?? `€${property.rent_per_month} / month`}
               </span>
-              <span style={{ fontSize: '16px', color: '#64748b' }}>/ month</span>
             </div>
 
             <div style={{
