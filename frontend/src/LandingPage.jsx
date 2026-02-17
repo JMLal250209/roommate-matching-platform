@@ -95,7 +95,7 @@ const HOUSES = [
 
 const PER_PAGE = 6;
 
-export default function LandingPage() {
+export default function LandingPage({ onSelectProperty }) {
   const [page, setPage] = useState(0);
   const [interests, setInterests] = useState({});
 
@@ -150,7 +150,8 @@ export default function LandingPage() {
             return (
               <article
                 key={house.id}
-                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                onClick={onSelectProperty}
+                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm cursor-pointer"
               >
                 <img
                   src={house.image}

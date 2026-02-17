@@ -1,13 +1,13 @@
 import { useState } from "react";
 import LandingPage from "./LandingPage.jsx";
-import SignIn from "./SignIn.jsx";
+import PropertyDetails from "./pages/details.jsx";
 
 export default function App() {
   const [isSignedIn, setIsSignedIn] = useState(false);
 
   if (isSignedIn) {
-    return <LandingPage />;
+    return <LandingPage onSelectProperty={() => setIsSignedIn(false)} />;
   }
 
-  return <SignIn onSignIn={() => setIsSignedIn(true)} />;
+  return <PropertyDetails onBack={() => setIsSignedIn(true)} />;
 }
