@@ -113,7 +113,7 @@ export default function ProfileAboutYou() {
     });
 
     alert("UI only: profile saved (check console).");
-    nav("/profile/view");
+    nav("/landing");
   }
 
   return (

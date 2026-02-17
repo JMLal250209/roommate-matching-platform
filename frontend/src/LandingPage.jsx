@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const HOUSES = [
   {
@@ -96,6 +97,7 @@ const HOUSES = [
 const PER_PAGE = 6;
 
 export default function LandingPage() {
+  const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [interests, setInterests] = useState({});
 
@@ -121,6 +123,13 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate("/profile/view")}
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+            >
+              View Profile
+            </button>
             <button
               type="button"
               onClick={() => setPage((current) => Math.max(current - 1, 0))}

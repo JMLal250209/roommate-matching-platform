@@ -6,6 +6,7 @@ import CreateProfile from "./pages/CreateProfile.jsx";
 import ProfileHousingRequirements from "./pages/ProfileHousingRequirements.jsx";
 import ProfileAboutYou from "./pages/ProfileAboutYou.jsx";
 import ProfileView from "./pages/ProfileView.jsx";
+import LandingPage from "./LandingPage.jsx";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
       <Route path="/profile/housing" element={<ProfileHousingRequirements />} />
       <Route path="/profile/about-you" element={<ProfileAboutYou />} />
       <Route path="/profile/view" element={<ProfileView />} />
+      <Route path="/landing" element={<LandingPage />} />
     </Routes>
   );
 }

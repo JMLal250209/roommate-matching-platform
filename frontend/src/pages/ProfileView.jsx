@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./ProfileView.css";
 
 const STEPS = ["Basic", "Housing", "About You"];
 
 export default function ProfileView() {
+  const navigate = useNavigate();
   const [step, setStep] = useState(0); // 0,1,2
   const [isEditing, setIsEditing] = useState(false);
   const [message, setMessage] = useState("");
@@ -226,9 +228,18 @@ export default function ProfileView() {
               </button>
             </div>
 
-            <button className="btn btnDark" type="button" onClick={startEdit}>
-              ✏️ Edit This Step
-            </button>
+            <div className="flex items-center gap-3">
+              <button className="btn btnDark" type="button" onClick={startEdit}>
+                ✏️ Edit This Step
+              </button>
+              <button 
+                className="btn btnSave" 
+                type="button" 
+                onClick={() => navigate("/landing")}
+              >
+                Done
+              </button>
+            </div>
           </div>
         )}
       </div>
