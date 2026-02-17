@@ -14,13 +14,13 @@ export default function SignIn() {
   }
 
   return (
-    <div className="min-h-screen flex bg-gray-900 text-white">
-      {/* 左侧：登录表单 */}
+    <div className="min-h-screen flex bg-white text-slate-900">
+      {/* Left: sign-in form */}
       <div className="flex w-full lg:w-1/2 flex-col justify-center px-6 py-12 lg:px-16">
         <div className="sm:mx-auto sm:w-full sm:max-w-sm text-center">
           <div className="flex flex-col items-center">
-            {/* 临时文字 Logo（替代 ShrimpLogo） */}
-            <div className="text-3xl font-bold text-indigo-400 mb-6">
+            {/* Temporary text logo */}
+            <div className="text-3xl font-bold text-emerald-600 mb-6">
               SHRMP
             </div>
 
@@ -33,67 +33,62 @@ export default function SignIn() {
         <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-sm font-medium text-gray-200">
+              <label className="block text-sm font-medium text-slate-700">
                 Email address
               </label>
               <input
                 type="email"
-                className="mt-2 block w-full rounded-md bg-white/5 px-3 py-2 text-white outline outline-1 outline-white/10 focus:outline-indigo-500"
+                className="mt-2 block w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-slate-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-300"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-gray-200">
+                <label className="block text-sm font-medium text-slate-700">
                   Password
                 </label>
-                <span className="text-sm text-indigo-400 cursor-pointer hover:underline">
+                <span className="text-sm text-emerald-600 cursor-pointer hover:underline">
                   Forgot password?
                 </span>
               </div>
               <input
                 type="password"
-                className="mt-2 block w-full rounded-md bg-white/5 px-3 py-2 text-white outline outline-1 outline-white/10 focus:outline-indigo-500"
+                className="mt-2 block w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-slate-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-300"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full rounded-md bg-indigo-500 py-2 font-semibold hover:bg-indigo-400"
+              className="w-full rounded-md bg-emerald-600 py-2 font-semibold text-white hover:bg-emerald-500"
             >
               Sign in
             </button>
           </form>
 
-          {/* Skip Sign In */}
-          <div className="mt-6">
+          {/* First-time registration link */}
+          <div className="mt-4 text-center">
             <button
               type="button"
-              onClick={() => navigate("/landing")}
-              className="w-full rounded-md border border-white/20 bg-transparent py-2 font-semibold text-white hover:bg-white/10"
+              onClick={() => navigate("/register")}
+              className="text-sm font-medium text-emerald-700 hover:underline"
             >
-              Skip Sign In
+              First time? Register here!
             </button>
           </div>
 
-          {/* 第三方登录 */}
+          {/* Third-party login (UI only) */}
           <div className="mt-8">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/10" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="bg-gray-900 px-2 text-gray-400">
-                  Or continue with
-                </span>
+                <div className="w-full border-t border-slate-200" />
               </div>
             </div>
 
             <div className="mt-6 grid grid-cols-2 gap-3">
-              <button className="flex items-center justify-center rounded-md bg-white/5 py-2 hover:bg-white/10">
+              <button className="flex items-center justify-center rounded-md border border-slate-200 bg-white py-2 text-sm font-medium text-slate-700 hover:bg-emerald-50">
                 Google
               </button>
-              <button className="flex items-center justify-center rounded-md bg-white/5 py-2 hover:bg-white/10">
+              <button className="flex items-center justify-center rounded-md border border-slate-200 bg-white py-2 text-sm font-medium text-slate-700 hover:bg-emerald-50">
                 GitHub
               </button>
             </div>
@@ -101,13 +96,13 @@ export default function SignIn() {
         </div>
       </div>
 
-      {/* 右侧：Welcome Back 介绍 */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gray-800 items-center justify-center px-12">
+      {/* Right: marketing copy */}
+      <div className="hidden lg:flex lg:w-1/2 bg-emerald-50 items-center justify-center px-12">
         <div className="max-w-md">
-          <h1 className="text-3xl font-bold mb-4">
+          <h1 className="text-3xl font-bold mb-4 text-emerald-700">
             Welcome back 👋
           </h1>
-          <p className="text-gray-300 leading-relaxed">
+          <p className="text-slate-600 leading-relaxed">
             SHRMP is a student housing and roommate matching platform designed
             to help students find both accommodation and compatible roommates.
             <br /><br />
