@@ -53,9 +53,10 @@ export default function ProfileView() {
   // Local uploaded image preview (doesn't require backend)
   const [photoPreview, setPhotoPreview] = useState("");
 
-  const accent = "#0F4570";
-  const pageBg = "#F7F9FB";
-  const cardBg = "#FA8D23";
+  // Unified light green + white theme
+  const accent = "#059669";       // emerald green
+  const pageBg = "#FFFFFF";       // white background
+  const cardBg = "#FFFFFF";       // white card
   const text = "#1F2933";
 
   const stepTitle = useMemo(() => STEPS[step], [step]);

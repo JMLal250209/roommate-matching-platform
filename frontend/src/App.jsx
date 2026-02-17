@@ -1,6 +1,7 @@
 // frontend/src/App.jsx
 import { Routes, Route, Navigate } from "react-router-dom";
 import SignIn from "./SignIn.jsx";
+import Register from "./Register.jsx";
 import Home from "./pages/Home.jsx";
 import CreateProfile from "./pages/CreateProfile.jsx";
 import ProfileHousingRequirements from "./pages/ProfileHousingRequirements.jsx";
@@ -13,6 +14,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Navigate to="/signin" replace />} />
       <Route path="/signin" element={<SignIn />} />
+      <Route path="/register" element={<Register />} />
       <Route path="/create-profile" element={<CreateProfile />} />
       <Route path="/profile/housing" element={<ProfileHousingRequirements />} />
       <Route path="/profile/about-you" element={<ProfileAboutYou />} />
