@@ -26,7 +26,7 @@ export default function CreateProfile() {
 
   function handleSkipAnyway() {
     setShowSkipWarning(false);
-    navigate("/profile/view");
+    navigate("/landing");
   }
 
   function handleCancelSkip() {

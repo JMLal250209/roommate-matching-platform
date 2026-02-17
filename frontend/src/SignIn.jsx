@@ -65,6 +65,17 @@ export default function SignIn() {
             </button>
           </form>
 
+          {/* Skip Sign In */}
+          <div className="mt-6">
+            <button
+              type="button"
+              onClick={() => navigate("/landing")}
+              className="w-full rounded-md border border-white/20 bg-transparent py-2 font-semibold text-white hover:bg-white/10"
+            >
+              Skip Sign In
+            </button>
+          </div>
+
           {/* 第三方登录 */}
           <div className="mt-8">
             <div className="relative">
