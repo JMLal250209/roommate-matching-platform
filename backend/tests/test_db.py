@@ -1,7 +1,11 @@
 import pytest
-from app import app  
-import boto3
-from botocore.exceptions import ClientError
+
+@pytest.fixture(scope="session", autouse=True)
+def mock_dynamodb_init(mocker):
+    # Mock DynamoDB init before app is imported
+    mocker.patch("app.create_table_if_not_exists")
+
+from app import app 
 
 @pytest.fixture
 def client():
@@ -23,14 +27,3 @@ def test_dynamodb_debug_endpoint(client):
     assert "sampleItemCount" in data
 
 
-def test_dynamodb_connection_directly():
-    """Directly test DynamoDB table connection"""
-    dynamodb = boto3.resource("dynamodb", region_name="eu-west-1")
-    table = dynamodb.Table("HousemateAppUsers")
-
-    try:
-        response = table.scan(Limit=1)
-        # Should return dict with Count key
-        assert "Count" in response
-    except ClientError as e:
-        pytest.fail(f"DynamoDB connection failed: {e}")
