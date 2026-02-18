@@ -1,5 +1,6 @@
 import boto3
 import uuid
+import decimal
 from datetime import datetime, timezone
 from boto3.dynamodb.conditions import Key, Attr
 from matching_algorithm import assign_animal_archetype
@@ -10,6 +11,31 @@ PROPERTIES_TABLE_NAME = "Houses"
 
 dynamodb = boto3.resource("dynamodb")
 dynamodb_client = boto3.client("dynamodb")
+
+
+# =========================
+# DECIMAL HELPER
+# =========================
+
+def _deserialize(obj):
+    """
+    Recursively convert decimal.Decimal values returned by DynamoDB into
+    int or float so Flask's jsonify() never throws a serialization error.
+
+    DynamoDB stores ALL numbers as Decimal regardless of how they were saved.
+    This includes fields like required_roommates, rent_per_month, age, bedrooms,
+    bathrooms, and any numeric value inside a nested 'profile' dict.
+
+    Call this on every Item before returning it from a db function.
+    """
+    if isinstance(obj, list):
+        return [_deserialize(i) for i in obj]
+    if isinstance(obj, dict):
+        return {k: _deserialize(v) for k, v in obj.items()}
+    if isinstance(obj, decimal.Decimal):
+        # Preserve int precision where possible (e.g. 2.0 → 2, not 2.0)
+        return int(obj) if obj % 1 == 0 else float(obj)
+    return obj
 
 
 # =========================
@@ -34,22 +60,20 @@ def get_users_table():
 def create_user(table, email, name, profile_data):
     """
     Create a new user with automatic animal archetype assignment
-    
+
     Args:
         table: DynamoDB users table
         email: User email
         name: User name
         profile_data: Dict containing user profile information
-    
+
     Returns:
         user_id: The generated user ID
     """
     user_id = str(uuid.uuid4())
-    
-    # Assign animal archetype based on personality
+
     animal_archetype = assign_animal_archetype(profile_data)
-    
-    # Build user item with nested profile
+
     user_item = {
         "userId": user_id,
         "name": name,
@@ -57,9 +81,9 @@ def create_user(table, email, name, profile_data):
         "animal_archetype": animal_archetype,
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "updatedAt": datetime.now(timezone.utc).isoformat(),
-        "profile": profile_data  # Store entire profile as nested object
+        "profile": profile_data,
     }
-    
+
     table.put_item(Item=user_item)
     return user_id
 
@@ -67,71 +91,64 @@ def create_user(table, email, name, profile_data):
 def update_user_profile(table, user_id, profile_updates):
     """
     Update user profile and recalculate animal archetype if personality changes
-    
+
     Args:
         table: DynamoDB users table
         user_id: User ID to update
         profile_updates: Dict of fields to update
-    
+
     Returns:
-        Updated user item
+        Updated user item (Decimals already deserialized)
     """
-    # Get current user
     response = table.get_item(Key={"userId": user_id})
     current_user = response.get("Item")
-    
+
     if not current_user:
         raise ValueError(f"User {user_id} not found")
-    
-    # Check if personality-related fields are being updated
+
     personality_fields = {"wakeTime", "bedtime", "socialPreference", "cleanliness"}
     personality_changed = bool(personality_fields & set(profile_updates.keys()))
-    
-    # If personality changed, recalculate animal archetype
+
     if personality_changed:
-        # Build profile for archetype calculation
         profile_for_archetype = {
             "wakeTime": profile_updates.get("wakeTime", current_user.get("wakeTime")),
             "bedtime": profile_updates.get("bedtime", current_user.get("bedtime")),
             "socialPreference": profile_updates.get("socialPreference", current_user.get("socialPreference")),
             "cleanliness": profile_updates.get("cleanliness", current_user.get("cleanliness")),
         }
-        
-        # Recalculate animal archetype
         new_animal = assign_animal_archetype(profile_for_archetype)
         profile_updates["animal_archetype"] = new_animal
-    
-    # Build update expression
+
     update_expression_parts = []
     expression_attribute_values = {}
-    
+
     for key, value in profile_updates.items():
         update_expression_parts.append(f"{key} = :{key}")
         expression_attribute_values[f":{key}"] = value
-    
+
     update_expression = "SET " + ", ".join(update_expression_parts)
-    
-    # Update in database
+
     response = table.update_item(
         Key={"userId": user_id},
         UpdateExpression=update_expression,
         ExpressionAttributeValues=expression_attribute_values,
-        ReturnValues="ALL_NEW"
+        ReturnValues="ALL_NEW",
     )
-    
-    return response.get("Attributes")
+
+    return _deserialize(response.get("Attributes"))  
 
 
 def get_user(table, user_id):
-    """Get a single user by ID"""
+    """Get a single user by ID (Decimals deserialized)"""
     response = table.get_item(Key={"userId": user_id})
-    return response.get("Item")
+    item = response.get("Item")
+    return _deserialize(item) if item else None  
 
 
 def list_users(table):
-    """List all users"""
+    """List all users (Decimals deserialized)"""
     response = table.scan()
-    return response.get("Items", [])
+    return [_deserialize(item) for item in response.get("Items", [])]  
 
 
 # =========================
@@ -156,28 +173,16 @@ def get_properties_table():
 def create_property(table, property_data):
     """
     Create a new property listing
-    
+
     Args:
-        property_data: Dict containing:
-            - title: Property title
-            - description: Property description
-            - address: Full address
-            - city: City name
-            - rent_per_month: Total monthly rent (number)
-            - required_roommates: Number of roommates needed (including tenant)
-            - bedrooms: Number of bedrooms
-            - bathrooms: Number of bathrooms
-            - amenities: List of amenities
-            - available_from: Date string
-            - pets_allowed: True/False
-            - smoking_allowed: True/False
-            - image_urls: List of image URLs
-    
+        property_data: Dict containing title, address, rent_per_month,
+                       required_roommates, bedrooms, bathrooms, etc.
+
     Returns:
         property_id: Generated property ID
     """
     property_id = str(uuid.uuid4())
-    
+
     property_item = {
         "propertyId": property_id,
         "title": property_data.get("title"),
@@ -196,32 +201,31 @@ def create_property(table, property_data):
         "image_urls": property_data.get("image_urls", []),
         "createdAt": datetime.now(timezone.utc).isoformat(),
     }
-    
+
     table.put_item(Item=property_item)
     return property_id
 
 
 def get_property(table, property_id):
-    """Get a single property by ID"""
+    """Get a single property by ID (Decimals deserialized)"""
     response = table.get_item(Key={"propertyId": property_id})
-    return response.get("Item")
+    item = response.get("Item")
+    return _deserialize(item) if item else None  
 
 
 def list_properties(table, status=None):
     """
-    List properties, optionally filtered by status
-    
+    List properties, optionally filtered by status (Decimals deserialized)
+
     Args:
         status: Optional status filter ("available", "matched", "occupied")
     """
     if status:
-        response = table.scan(
-            FilterExpression=Attr("status").eq(status)
-        )
+        response = table.scan(FilterExpression=Attr("status").eq(status))
     else:
         response = table.scan()
-    
-    return response.get("Items", [])
+
+    return [_deserialize(item) for item in response.get("Items", [])]  
 
 
 # =========================
@@ -229,9 +233,7 @@ def list_properties(table, status=None):
 # =========================
 
 def _create_interests_table():
-    """
-    Create the interests table with GSIs for querying by property or user
-    """
+    """Create the interests table with GSIs for querying by property or user"""
     dynamodb_client.create_table(
         TableName=INTERESTS_TABLE_NAME,
         KeySchema=[{"AttributeName": "interestId", "KeyType": "HASH"}],
@@ -263,52 +265,48 @@ def get_interests_table():
 
 def register_property_interest(interests_table, user_id, property_id, budget=None):
     """
-    Register a user's interest in a property
-    
+    Register a user's interest in a property (idempotent).
+
     Args:
         interests_table: DynamoDB interests table
         user_id: User ID
         property_id: Property ID
-        budget: Optional budget for THIS specific property (e.g., "€800/month")
-                This is per-property, not stored in user profile
-    
+        budget: Optional per-property budget string (e.g. "€800/month")
+
     Returns:
-        interest_id: Generated interest ID
+        interest_id: Generated or existing interest ID
     """
-    # Check if user already registered interest
     existing = get_user_interests(interests_table, user_id)
     for interest in existing:
         if interest.get("propertyId") == property_id:
-            # Already registered
             return interest.get("interestId")
-    
+
     interest_id = str(uuid.uuid4())
-    
+
     interest_item = {
         "interestId": interest_id,
         "userId": user_id,
         "propertyId": property_id,
         "registeredAt": datetime.now(timezone.utc).isoformat(),
-        "status": "pending",  # pending, matched, withdrawn
+        "status": "pending",
     }
-    
-    # Add budget if provided (optional, per-property)
+
     if budget:
         interest_item["budget"] = budget
-    
+
     interests_table.put_item(Item=interest_item)
     return interest_id
 
 
 def get_property_interests(interests_table, property_id, status=None):
     """
-    Get all interests for a specific property
-    
+    Get all interests for a specific property (Decimals deserialized).
+
     Args:
         interests_table: DynamoDB interests table
         property_id: Property ID
-        status: Optional status filter ("pending", "matched", "withdrawn")
-    
+        status: Optional filter — "pending", "matched", or "withdrawn"
+
     Returns:
         List of interest records
     """
@@ -323,14 +321,14 @@ def get_property_interests(interests_table, property_id, status=None):
             IndexName="PropertyIndex",
             KeyConditionExpression=Key("propertyId").eq(property_id),
         )
-    
-    return resp.get("Items", [])
+
+    return [_deserialize(item) for item in resp.get("Items", [])]  
 
 
 def get_user_interests(interests_table, user_id):
     """
-    Get all properties a user has registered interest in
-    
+    Get all interests registered by a user (Decimals deserialized).
+
     Returns:
         List of interest records
     """
@@ -338,17 +336,21 @@ def get_user_interests(interests_table, user_id):
         IndexName="UserIndex",
         KeyConditionExpression=Key("userId").eq(user_id),
     )
-    return resp.get("Items", [])
+    return [_deserialize(item) for item in resp.get("Items", [])]  
 
 
 def update_interest_status(interests_table, interest_id, status, match_group_id=None):
     """
-    Update the status of an interest record
-    
+    Update the status of an interest record.
+
     Args:
+        interests_table: DynamoDB interests table
         interest_id: Interest record ID
-        status: New status ("pending", "matched", "withdrawn")
-        match_group_id: Optional group ID if matched
+        status: New status — "pending", "matched", or "withdrawn"
+        match_group_id: Shared group UUID assigned when status is "matched"
+
+    Returns:
+        Updated interest record (Decimals deserialized)
     """
     update_expression = "SET #s = :status"
     expr_vals = {":status": status}
@@ -366,7 +368,7 @@ def update_interest_status(interests_table, interest_id, status, match_group_id=
         ExpressionAttributeNames=expr_names,
         ReturnValues="ALL_NEW",
     )
-    return resp.get("Attributes")
+    return _deserialize(resp.get("Attributes"))  
 
 
 def withdraw_interest(interests_table, interest_id):
@@ -389,7 +391,7 @@ def create_tables_if_not_exist():
     if INTERESTS_TABLE_NAME not in existing_tables:
         print(f"Creating table: {INTERESTS_TABLE_NAME}")
         _create_interests_table()
-    
+
     if PROPERTIES_TABLE_NAME not in existing_tables:
         print(f"Creating table: {PROPERTIES_TABLE_NAME}")
         _create_properties_table()
@@ -400,24 +402,15 @@ def create_tables_if_not_exist():
 # =========================
 
 def get_full_interest_details(interests_table, users_table, properties_table, interest_id):
-    """
-    Get complete details for an interest including user and property info
-    """
-    # Get interest record
+    """Get complete details for an interest including user and property info"""
     response = interests_table.get_item(Key={"interestId": interest_id})
     interest = response.get("Item")
-    
+
     if not interest:
         return None
-    
-    # Get user details
-    user = get_user(users_table, interest["userId"])
-    
-    # Get property details
-    property_data = get_property(properties_table, interest["propertyId"])
-    
+
     return {
-        "interest": interest,
-        "user": user,
-        "property": property_data
+        "interest": _deserialize(interest),          
+        "user": get_user(users_table, interest["userId"]),
+        "property": get_property(properties_table, interest["propertyId"]),
     }
