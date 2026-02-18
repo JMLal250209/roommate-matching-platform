@@ -1,5 +1,7 @@
 from flask import Flask, jsonify, request
+import decimal
 from flask_cors import CORS
+from flask.json.provider import DefaultJSONProvider
 from db import create_tables_if_not_exist
 from cognito import verify_jwt, ensure_user_exists
 
@@ -12,7 +14,29 @@ from routes.info import info_bp
 from routes.auth import auth_bp
 
 
+
+# ---------------------------------------------------------------------------
+# Decimal-safe JSON provider
+# ---------------------------------------------------------------------------
+# DynamoDB returns all numbers as decimal.Decimal. Even though db.py now
+# deserializes them at the source, this app-wide encoder acts as a safety net
+# so any route that forgets to deserialize won't crash with a 500 error.
+
+class DecimalSafeJSONProvider(DefaultJSONProvider):
+    def default(self, obj):
+        if isinstance(obj, decimal.Decimal):
+            return int(obj) if obj % 1 == 0 else float(obj)
+        return super().default(obj)
+
+
+# ---------------------------------------------------------------------------
+# App setup
+# ---------------------------------------------------------------------------
+
 app = Flask(__name__)
+app.json_provider_class = DecimalSafeJSONProvider  # ✅ Flask 2.2+
+app.json = DecimalSafeJSONProvider(app)
+
 CORS(app)
 
 # Define public routes that don't require authentication
@@ -102,8 +126,8 @@ def home():
             "properties": "/api/properties",
             "interests": "/api/interests",
             "matching": "/api/match",
-            "info": "/api/animals"
-        }
+            "info": "/api/animals",
+        },
     }), 200
 
 
