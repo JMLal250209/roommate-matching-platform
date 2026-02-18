@@ -9,7 +9,7 @@ from db import (
     get_property,
     register_property_interest,
     get_user_interests,
-    update_interest_status, 
+    update_interest_status,
 )
 from matching_algorithm import (
     check_property_match_complete,
@@ -45,13 +45,8 @@ def _mark_group_as_matched(interests_table, property_id, matched_user_ids):
             updated_count (int)  – records actually written
             group_id      (str)  – shared matchedGroupId assigned to the group
     """
-    # One shared group ID so all members are linked together
     group_id = str(uuid.uuid4())
 
-    # Only fetch pending interests — this is the duplicate-update guard.
-    # If _mark_group_as_matched is called again for the same group the records
-    # will already be 'matched', so the pending_by_user dict will be empty for
-    # those users and we'll skip them cleanly.
     pending_interests = get_property_interests(
         interests_table, property_id, status="pending"
     )
@@ -83,12 +78,12 @@ def register_interest(property_id):
       - A `groupMatch` block is included in the response.
     """
     try:
-        data = request.get_json()
-        user_id = data.get("userId")
-        budget = data.get("budget")
+        # Use authenticated user from app-level auth
+        user_id = request.user['userId']
 
-        if not user_id:
-            return jsonify({"success": False, "error": "userId is required"}), 400
+        # Optional budget from request body
+        data = request.get_json() or {}
+        budget = data.get("budget")
 
         users_table      = get_users_table()
         properties_table = get_properties_table()
@@ -108,9 +103,9 @@ def register_interest(property_id):
         )
 
         # Fetch all non-withdrawn interests so the count is accurate
-        all_interests      = get_property_interests(interests_table, property_id)
-        active_interests   = [i for i in all_interests if i.get("status") != "withdrawn"]
-        other_user_ids     = [i["userId"] for i in active_interests if i["userId"] != user_id]
+        all_interests    = get_property_interests(interests_table, property_id)
+        active_interests = [i for i in all_interests if i.get("status") != "withdrawn"]
+        other_user_ids   = [i["userId"] for i in active_interests if i["userId"] != user_id]
 
         required_roommates = property_data.get("required_roommates", 2)
         total_interested   = len(other_user_ids) + 1  # +1 for the registering user
@@ -120,13 +115,13 @@ def register_interest(property_id):
             return jsonify({
                 "success": True,
                 "data": {
-                    "interestId":       interest_id,
-                    "propertyId":       property_id,
-                    "propertyTitle":    property_data.get("title"),
-                    "yourAnimal":       user.get("animal_archetype"),
-                    "totalInterested":  total_interested,
+                    "interestId":        interest_id,
+                    "propertyId":        property_id,
+                    "propertyTitle":     property_data.get("title"),
+                    "yourAnimal":        user.get("animal_archetype"),
+                    "totalInterested":   total_interested,
                     "requiredRoommates": required_roommates,
-                    "matches": {"compatible": [], "incompatible": []},
+                    "matches":           {"compatible": [], "incompatible": []},
                     "message": (
                         f"Interest registered! Waiting for more users. "
                         f"Need {required_roommates}, currently {total_interested} interested."
@@ -144,7 +139,6 @@ def register_interest(property_id):
         all_interested_users = [user] + other_users_full
 
         # ── Group-completion check ──────────────────────────────────────────
-        # Run against the full pool so we detect a match the moment it forms.
         is_complete, best_group = check_property_match_complete(
             all_interested_users,
             required_roommates,
@@ -158,10 +152,10 @@ def register_interest(property_id):
                 interests_table, property_id, matched_user_ids
             )
             group_match_payload = {
-                "formed":        True,
+                "formed":         True,
                 "matchedUserIds": matched_user_ids,
-                "groupId":       result["group_id"],
-                "statusUpdated": result["updated_count"],
+                "groupId":        result["group_id"],
+                "statusUpdated":  result["updated_count"],
                 "message": (
                     f"A complete compatible group of {len(best_group)} has been "
                     f"formed for this property!"
@@ -169,8 +163,8 @@ def register_interest(property_id):
             }
 
         # ── Pairwise matches for the registering user ──────────────────────
-        matches     = find_matches_for_property(user, other_users_full)
-        compatible  = [m for m in matches if m["compatibility_score"] >= 60]
+        matches      = find_matches_for_property(user, other_users_full)
+        compatible   = [m for m in matches if m["compatibility_score"] >= 60]
         incompatible = [m for m in matches if m["compatibility_score"] < 60]
 
         response_data = {
@@ -180,7 +174,7 @@ def register_interest(property_id):
             "yourAnimal":        user.get("animal_archetype"),
             "totalInterested":   total_interested,
             "requiredRoommates": required_roommates,
-            "matches": {"compatible": compatible, "incompatible": incompatible},
+            "matches":           {"compatible": compatible, "incompatible": incompatible},
             "message": (
                 f"You are compatible with {len(compatible)} out of "
                 f"{len(other_users_full)} other interested users"
@@ -203,6 +197,13 @@ def get_matches_for_user_property(user_id, property_id):
     property.  The response now includes `interestStatus` so clients can tell
     whether this user's interest has already been moved to 'matched'.
     """
+    # Security: Users can only view their own matches
+    if request.user['userId'] != user_id:
+        return jsonify({
+            "success": False,
+            "error": "Unauthorized: You can only view your own matches"
+        }), 403
+
     try:
         users_table      = get_users_table()
         properties_table = get_properties_table()
@@ -229,7 +230,7 @@ def get_matches_for_user_property(user_id, property_id):
             }), 400
 
         # Count active (non-withdrawn) interests, excluding the requesting user
-        active_interests = [
+        active_interests    = [
             i for i in all_property_interests
             if i["userId"] != user_id and i.get("status") != "withdrawn"
         ]
@@ -274,7 +275,7 @@ def get_matches_for_user_property(user_id, property_id):
                 "propertyId":        property_id,
                 "propertyTitle":     property_data.get("title"),
                 "yourAnimal":        user.get("animal_archetype"),
-                "interestStatus":    user_interest_record.get("status"),  
+                "interestStatus":    user_interest_record.get("status"),
                 "totalInterested":   total_interested,
                 "requiredRoommates": required_roommates,
                 "matches":           {"compatible": compatible, "incompatible": incompatible},
@@ -309,9 +310,7 @@ def check_match_complete(property_id):
         if not property_data:
             return jsonify({"success": False, "error": "Property not found"}), 404
 
-        # Only consider pending interests — already-matched users are excluded
-        # so re-calling this endpoint never double-processes a completed group.
-        pending_interests  = get_property_interests(interests_table, property_id, status="pending")
+        pending_interests   = get_property_interests(interests_table, property_id, status="pending")
         interested_user_ids = [i["userId"] for i in pending_interests]
 
         interested_users = []
@@ -331,13 +330,11 @@ def check_match_complete(property_id):
         )
 
         if is_complete and best_group:
-            # ── Update interest statuses ────────────────────────────────────
             matched_user_ids = [u["userId"] for u in best_group]
             result = _mark_group_as_matched(
                 interests_table, property_id, matched_user_ids
             )
 
-            # Calculate group statistics
             scores = [
                 calculate_compatibility_score(best_group[i], best_group[j])
                 for i in range(len(best_group))
@@ -360,10 +357,10 @@ def check_match_complete(property_id):
                         }
                         for u in best_group
                     ],
-                    "groupId":              result["group_id"],   
+                    "groupId":              result["group_id"],
                     "groupSize":            len(best_group),
                     "averageCompatibility": round(avg_score, 2),
-                    "statusUpdated":        result["updated_count"], 
+                    "statusUpdated":        result["updated_count"],
                     "propertyId":           property_id,
                     "propertyTitle":        property_data.get("title"),
                     "message": (
@@ -377,9 +374,9 @@ def check_match_complete(property_id):
             return jsonify({
                 "success": True,
                 "data": {
-                    "isComplete":          False,
+                    "isComplete":           False,
                     "currentInterestCount": len(interested_users),
-                    "requiredRoommates":   required_roommates,
+                    "requiredRoommates":    required_roommates,
                     "message": (
                         f"Not enough compatible users yet. "
                         f"Need {required_roommates}, have {len(interested_users)} interested."
@@ -406,7 +403,6 @@ def get_property_match_groups(property_id):
         if not property_data:
             return jsonify({"success": False, "error": "Property not found"}), 404
 
-        # Only pending users are still seeking a group
         interests = get_property_interests(interests_table, property_id, status="pending")
         interested_users = []
         for interest in interests:
@@ -440,12 +436,12 @@ def get_property_match_groups(property_id):
         return jsonify({
             "success": True,
             "data": {
-                "propertyId":       property_id,
-                "propertyTitle":    property_data.get("title"),
-                "totalInterested":  len(interested_users),
+                "propertyId":        property_id,
+                "propertyTitle":     property_data.get("title"),
+                "totalInterested":   len(interested_users),
                 "requiredRoommates": required_roommates,
-                "compatibleGroups": all_groups,
-                "groupCount":       len(all_groups),
+                "compatibleGroups":  all_groups,
+                "groupCount":        len(all_groups),
             },
         }), 200
 
@@ -463,6 +459,13 @@ def get_user_property_interests(user_id):
     their confirmed group as well as properties still in progress.
     Withdrawn interests are excluded from counts to keep totals accurate.
     """
+    # Security: Users can only view their own interests
+    if request.user['userId'] != user_id:
+        return jsonify({
+            "success": False,
+            "error": "Unauthorized: You can only view your own interests"
+        }), 403
+
     try:
         users_table      = get_users_table()
         properties_table = get_properties_table()
@@ -472,14 +475,11 @@ def get_user_property_interests(user_id):
         if not user:
             return jsonify({"success": False, "error": "User not found"}), 404
 
-        # get_user_interests returns ALL statuses — no filter applied here
-        # so matched users continue to see their properties
         user_interests = get_user_interests(interests_table, user_id)
 
         interests_with_matches = []
 
         for interest in user_interests:
-            # Skip withdrawn interests — they are no longer active
             if interest.get("status") == "withdrawn":
                 continue
 
@@ -488,12 +488,9 @@ def get_user_property_interests(user_id):
             if not property_data:
                 continue
 
-            # Fetch all interests for this property so matched group members
-            # are visible even after the group is formed.
             all_interests = get_property_interests(interests_table, property_id)
 
-            # Exclude withdrawn records from the active count
-            active_others = [
+            active_others  = [
                 i for i in all_interests
                 if i["userId"] != user_id and i.get("status") != "withdrawn"
             ]
@@ -515,20 +512,20 @@ def get_user_property_interests(user_id):
                 compatible = [m for m in matches if m["compatibility_score"] >= 60]
 
             interests_with_matches.append({
-                "interestId":       interest["interestId"],
-                "propertyId":       property_id,
-                "propertyTitle":    property_data.get("title"),
-                "propertyAddress":  property_data.get("address"),
-                "rentPerMonth":     property_data.get("rent_per_month"),
-                "registeredAt":     interest.get("registeredAt"),
-                "status":           interest.get("status"),           
-                "matchedGroupId":   interest.get("matchedGroupId"),   
-                "matchedAt":        interest.get("matchedAt"),       
-                "budget":           interest.get("budget"),
-                "totalInterested":  total_interested,
+                "interestId":        interest["interestId"],
+                "propertyId":        property_id,
+                "propertyTitle":     property_data.get("title"),
+                "propertyAddress":   property_data.get("address"),
+                "rentPerMonth":      property_data.get("rent_per_month"),
+                "registeredAt":      interest.get("registeredAt"),
+                "status":            interest.get("status"),
+                "matchedGroupId":    interest.get("matchedGroupId"),
+                "matchedAt":         interest.get("matchedAt"),
+                "budget":            interest.get("budget"),
+                "totalInterested":   total_interested,
                 "requiredRoommates": required_roommates,
                 "compatibleMatches": len(compatible),
-                "topMatches":       compatible[:3] if compatible else [],
+                "topMatches":        compatible[:3] if compatible else [],
                 "hasEnoughInterest": total_interested >= required_roommates,
             })
 
