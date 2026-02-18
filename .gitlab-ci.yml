@@ -6,7 +6,7 @@ build_backend:
   stage: build
   tags:
     - docker
-  image: gitlab/python:3.9  # <- this one has dumb-init preinstalled
+  image: python:3.9  
   script:
     - cd backend
     - pip install -r requirements.txt
