@@ -8,7 +8,7 @@ app = Flask(__name__)
 CORS(app)
 if __name__ == "__main__":
  create_table_if_not_exists()
-app.run()
+ app.run(debug=True)
 
 @app.route('/health')
 def health():
@@ -204,8 +204,6 @@ def delete_user(user_id):
             "error": str(e)
         }), 500
 
-if __name__ == '__main__':
-    app.run(debug=True)
 
 @app.route("/debug/dynamodb")
 def debug_dynamodb():
