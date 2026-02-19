@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import SignIn from "./SignIn";
 import SignUp from "./SignUp";
 import Contact from "./pages/Contact";
-import Matches from "./pages/Matches";
+import Matches from "./Matches";
 
 export default function App() {
   return (
