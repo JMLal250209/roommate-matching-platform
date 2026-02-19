@@ -43,7 +43,8 @@ PUBLIC_ROUTES = {
     '/api/auth/signup',
     '/api/auth/confirm',
     '/api/auth/login',
-    '/api/auth/refresh'
+    '/api/auth/refresh',
+    '/debug/dynamodb'
 }
 
 def is_public_route(path):
