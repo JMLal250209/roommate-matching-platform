@@ -4,6 +4,9 @@ stages:
   - test
   - security
 
+variables:
+  AWS_DEFAULT_REGION: "eu-west-1"
+
 # -----------------------
 # Build Backend
 # -----------------------
