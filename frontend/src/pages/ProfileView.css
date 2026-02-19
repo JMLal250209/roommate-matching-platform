@@ -125,8 +125,8 @@
   place-items: center;
   border-radius: 999px;
   font-weight: 900;
-  background: rgba(15, 69, 112, 0.12);
-  color: #0F4570;
+  background: rgba(5, 150, 105, 0.12);
+  color: #059669;
 }
 
 .stepLabel {
@@ -229,8 +229,8 @@
 }
 
 .input:focus {
-  border-color: rgba(15, 69, 112, 0.75);
-  box-shadow: 0 0 0 3px rgba(15, 69, 112, 0.15);
+  border-color: rgba(5, 150, 105, 0.75);
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
 }
 
 .hint {
@@ -296,7 +296,7 @@
 }
 
 .btnDark {
-  background: #0F4570;
+  background: #059669;
   color: white;
 }
 
