@@ -1,4 +1,4 @@
-// frontend/src/pages/Matches.jsx
+// frontend/src/Matches.jsx
 import { Link } from "react-router-dom";
 
 export default function Matches() {
@@ -12,13 +12,10 @@ export default function Matches() {
   return (
     <div className="min-h-screen bg-gray-900 text-white px-6 py-10">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6">
-          Your Houses & Matches
-        </h1>
+        <h1 className="text-2xl font-bold mb-6">Your Houses & Matches</h1>
 
         <p className="text-gray-300 mb-6">
-          This page shows a summary of all houses and matches.
-          (Placeholder UI for now)
+          This page shows a summary of all houses and matches. (Placeholder UI for now)
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -27,12 +24,8 @@ export default function Matches() {
               key={house.id}
               className="rounded-xl bg-white/5 border border-white/10 p-5"
             >
-              <div className="text-lg font-semibold">
-                {house.name}
-              </div>
-              <div className="text-gray-400 text-sm mt-1">
-                {house.address}
-              </div>
+              <div className="text-lg font-semibold">{house.name}</div>
+              <div className="text-gray-400 text-sm mt-1">{house.address}</div>
 
               <div className="mt-4">
                 <button
@@ -47,10 +40,7 @@ export default function Matches() {
         </div>
 
         <div className="mt-10">
-          <Link
-            to="/"
-            className="text-indigo-400 hover:underline text-sm"
-          >
+          <Link to="/" className="text-indigo-400 hover:underline text-sm">
             Back to Sign In
           </Link>
         </div>
