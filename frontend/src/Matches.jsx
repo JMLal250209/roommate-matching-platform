@@ -2,47 +2,81 @@
 import { Link } from "react-router-dom";
 
 export default function Matches() {
-  const houses = [
-    { id: 1, name: "House 1", address: "Address placeholder" },
-    { id: 2, name: "House 2", address: "Address placeholder" },
-    { id: 3, name: "House 3", address: "Address placeholder" },
-    { id: 4, name: "House 4", address: "Address placeholder" },
-  ];
+  const match = {
+    title: "House 2 Match!",
+    house: {
+      address: "123 Example Street, Dublin 2",
+      rent: "€1,850 / month",
+      rooms: 3,
+    },
+    flatmates: ["Alicia", "Patricia", "Emma"],
+  };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white px-6 py-10">
-      <div className="max-w-5xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6">Your Houses & Matches</h1>
+    <div className="min-h-screen flex items-center justify-center bg-white px-6 py-10">
+      <div className="w-full max-w-4xl rounded-[32px] border border-gray-300 p-10">
+        <div className="rounded-[24px] border border-gray-300 p-10">
+          <h1 className="text-4xl font-extrabold mb-8">{match.title}</h1>
 
-        <p className="text-gray-300 mb-6">
-          This page shows a summary of all houses and matches. (Placeholder UI for now)
-        </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* House */}
+            <div>
+              <div className="font-semibold mb-3">House:</div>
+              <div className="rounded-2xl border border-gray-300 p-6 space-y-4">
+                <div>
+                  <div className="text-sm text-gray-500">Address</div>
+                  <div className="text-lg font-medium">{match.house.address}</div>
+                </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {houses.map((house) => (
-            <div
-              key={house.id}
-              className="rounded-xl bg-white/5 border border-white/10 p-5"
-            >
-              <div className="text-lg font-semibold">{house.name}</div>
-              <div className="text-gray-400 text-sm mt-1">{house.address}</div>
+                <div>
+                  <div className="text-sm text-gray-500">Rent</div>
+                  <div className="text-lg font-medium">{match.house.rent}</div>
+                </div>
 
-              <div className="mt-4">
+                <div>
+                  <div className="text-sm text-gray-500">Number of rooms</div>
+                  <div className="text-lg font-medium">{match.house.rooms}</div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex gap-4">
                 <button
-                  className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold hover:bg-indigo-400"
+                  className="rounded-xl border border-gray-300 px-6 py-3 font-medium hover:bg-gray-100"
                   onClick={() => alert("Match details placeholder")}
                 >
-                  View match
+                  View details
                 </button>
+
+                <Link
+                  to="/"
+                  className="rounded-xl border border-gray-300 px-6 py-3 font-medium hover:bg-gray-100"
+                >
+                  Back to Sign In
+                </Link>
               </div>
             </div>
-          ))}
-        </div>
 
-        <div className="mt-10">
-          <Link to="/" className="text-indigo-400 hover:underline text-sm">
-            Back to Sign In
-          </Link>
+            {/* Flatmates */}
+            <div>
+              <div className="font-semibold mb-3">Your flatmates</div>
+              <div className="rounded-2xl border border-gray-300 p-6 space-y-4">
+                {match.flatmates.map((name) => (
+                  <div key={name} className="flex items-center justify-between">
+                    <div className="text-lg font-medium">{name}</div>
+                    <button
+                      className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100"
+                      onClick={() => alert(`View profile for ${name} (placeholder)`)}
+                    >
+                      View profile
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 如果你不想要注释，就别放这一行 */}
+          {/* <div className="mt-8 text-sm text-gray-500">Placeholder UI (wireframe-style). Data will be wired later.</div> */}
         </div>
       </div>
     </div>
