@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 const HOUSES = [
@@ -99,7 +99,10 @@ const PER_PAGE = 6;
 export default function LandingPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
-  const [interests, setInterests] = useState({});
+  const [interests, setInterests] = useState(() => {
+    const saved = localStorage.getItem('house_interests');
+    return saved ? JSON.parse(saved) : {};
+  });
 
   const totalPages = Math.ceil(HOUSES.length / PER_PAGE);
 
@@ -108,8 +111,13 @@ export default function LandingPage() {
     return HOUSES.slice(start, start + PER_PAGE);
   }, [page]);
 
-  const handleRegisterInterest = (houseId) => {
-    setInterests((prev) => ({ ...prev, [houseId]: true }));
+  useEffect(() => {
+    localStorage.setItem('house_interests', JSON.stringify(interests));
+  }, [interests]);
+
+  const handleRegisterInterest = (houseId, e) => {
+    e.stopPropagation(); // Prevent navigation when clicking button
+    setInterests((prev) => ({ ...prev, [houseId]: !prev[houseId] }));
   };
 
   return (
@@ -123,6 +131,13 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate("/green")}
+              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
+            >
+              🌿 Green Computing
+            </button>
             <button
               type="button"
               onClick={() => navigate("/profile/view")}
@@ -159,7 +174,8 @@ export default function LandingPage() {
             return (
               <article
                 key={house.id}
-                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                onClick={() => navigate('/house1/details', { state: { house } })}
+                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm cursor-pointer"
               >
                 <img
                   src={house.image}
@@ -185,11 +201,14 @@ export default function LandingPage() {
 
                   <button
                     type="button"
-                    onClick={() => handleRegisterInterest(house.id)}
-                    disabled={interested}
-                    className="mt-1 w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                    onClick={(e) => handleRegisterInterest(house.id, e)}
+                    className={`mt-1 w-full rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
+                      interested
+                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200'
+                        : 'bg-emerald-600 text-white hover:bg-emerald-500'
+                    }`}
                   >
-                    {interested ? "Interest Registered" : "Register Interest"}
+                    {interested ? "Interest Registered ✓" : "Register Interest"}
                   </button>
                 </div>
               </article>
