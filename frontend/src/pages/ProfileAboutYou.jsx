@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useProfile } from "../context/ProfileContext.jsx";
 import ProgressHeader from "../components/ProgressHeader.jsx";
 import PillSelect from "../components/PillSelect.jsx";
 import TagPicker from "../components/TagPicker.jsx";
-import AnimalRevealModal from "../components/AnimalRevealModal.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
+import { useProfileDraft } from "../context/ProfileDraftContext.jsx";
+import { mapFormToProfilePayload } from "../lib/profileMapping";
+import { getUser, updateUser } from "../lib/usersApi";
 
 const SCHEDULE = [
   { value: "early", label: "Early riser" },
@@ -37,13 +40,23 @@ const YES_NO = [
 ];
 
 const INTERESTS = [
-  "Gym", "Sports", "Gaming", "Music", "Cooking", "Reading",
-  "Nightlife", "Coffee", "Films", "Hiking", "Societies", "Tech",
-  "Art", "Travel",
+  "Gym",
+  "Sports",
+  "Gaming",
+  "Music",
+  "Cooking",
+  "Reading",
+  "Nightlife",
+  "Coffee",
+  "Films",
+  "Hiking",
+  "Societies",
+  "Tech",
+  "Art",
+  "Travel",
 ];
 
 const TRAITS = [
-  // based on your image + extras
   "Late schedule, quiet, tidy",
   "Social, flexible schedule, medium tidy",
   "Quiet, independent, tidy",
@@ -62,79 +75,145 @@ const TRAITS = [
   "Neat kitchen person",
 ];
 
+function isDraftNearDefault(draft) {
+  if (!draft) return true;
+  const about = draft.about || {};
+  const housing = draft.housing || {};
+
+  return (
+    !about.displayName &&
+    !about.course &&
+    !about.bio &&
+    (!about.interests || about.interests.length === 0) &&
+    (!about.traits || about.traits.length === 0) &&
+    (!housing.notes || housing.notes.length === 0)
+  );
+}
+
 export default function ProfileAboutYou() {
   const nav = useNavigate();
-  const { profile, setAbout } = useProfile();
+  const { user, setUser, signOut } = useAuth();
+  const { draft, setAbout, hydrateFromBackend, resetDraft } = useProfileDraft();
 
-  const [displayName, setDisplayName] = useState(profile.displayName ?? "");
-  const [course, setCourse] = useState(profile.course ?? "");
-  const [schedule, setSchedule] = useState(profile.schedule ?? "normal");
-  const [noise, setNoise] = useState(profile.noise ?? "neutral");
-  const [cleanliness, setCleanliness] = useState(profile.cleanliness ?? "average");
-  const [studySocial, setStudySocial] = useState(profile.studySocial ?? "balanced");
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [saveError, setSaveError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const shouldHydrateFromBackend = useRef(isDraftNearDefault(draft));
 
-  const [smoking, setSmoking] = useState(profile.smoking ?? "no");
-  const [okayWithSmoking, setOkayWithSmoking] = useState(profile.okayWithSmoking ?? "no");
-  const [pets, setPets] = useState(profile.pets ?? "no");
-  const [okayWithPets, setOkayWithPets] = useState(profile.okayWithPets ?? "yes");
-
-  const [interests, setInterests] = useState(profile.interests ?? []);
-  const [traits, setTraits] = useState(profile.traits ?? []);
-  const [bio, setBio] = useState(profile.bio ?? "");
-  const [showAnimalModal, setShowAnimalModal] = useState(false);
+  const about = useMemo(() => draft.about, [draft.about]);
 
   useEffect(() => {
-    setDisplayName(profile.displayName ?? "");
-    setCourse(profile.course ?? "");
-    setSchedule(profile.schedule ?? "normal");
-    setNoise(profile.noise ?? "neutral");
-    setCleanliness(profile.cleanliness ?? "average");
-    setStudySocial(profile.studySocial ?? "balanced");
-    setSmoking(profile.smoking ?? "no");
-    setOkayWithSmoking(profile.okayWithSmoking ?? "no");
-    setPets(profile.pets ?? "no");
-    setOkayWithPets(profile.okayWithPets ?? "yes");
-    setInterests(profile.interests ?? []);
-    setTraits(profile.traits ?? []);
-    setBio(profile.bio ?? "");
-  }, [
-    profile.displayName, profile.course, profile.schedule, profile.noise,
-    profile.cleanliness, profile.studySocial, profile.smoking, profile.okayWithSmoking,
-    profile.pets, profile.okayWithPets, profile.interests, profile.traits, profile.bio
-  ]);
+    let isMounted = true;
 
-  function toggleTrait(t) {
-    setTraits((prev) => {
-      const s = new Set(prev);
-      if (s.has(t)) s.delete(t);
-      else s.add(t);
-      return Array.from(s);
-    });
+    async function preloadProfile() {
+      if (!user?.userId) {
+        setLoadingProfile(false);
+        return;
+      }
+
+      try {
+        const freshUser = await getUser(user.userId);
+        if (!isMounted || !freshUser) return;
+
+        setUser(freshUser);
+
+        if (shouldHydrateFromBackend.current) {
+          hydrateFromBackend(freshUser.profile, freshUser.name);
+          shouldHydrateFromBackend.current = false;
+        }
+      } catch (err) {
+        if (!isMounted) return;
+        if (err?.code === "SESSION_EXPIRED") {
+          signOut("Session expired. Please sign in again.");
+          return;
+        }
+        setSaveError(err?.message || "Unable to load existing profile data.");
+      } finally {
+        if (isMounted) {
+          setLoadingProfile(false);
+        }
+      }
+    }
+
+    preloadProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, [hydrateFromBackend, setUser, signOut, user?.userId]);
+
+  useEffect(() => {
+    if (user?.name && !about.displayName) {
+      setAbout({ displayName: user.name });
+    }
+  }, [about.displayName, setAbout, user?.name]);
+
+  function toggleTrait(trait) {
+    const existing = about.traits || [];
+    const nextSet = new Set(existing);
+    if (nextSet.has(trait)) {
+      nextSet.delete(trait);
+    } else {
+      nextSet.add(trait);
+    }
+
+    setAbout({ traits: Array.from(nextSet) });
   }
 
-  function onSave(e) {
+  async function onSave(e) {
     e.preventDefault();
-    if (!displayName.trim()) {
-      alert("Please enter a display name.");
+    setSaveError("");
+
+    if (!about.displayName?.trim()) {
+      setSaveError("Please enter a display name.");
       return;
     }
 
-    setAbout({
-      displayName,
-      course,
-      schedule,
-      noise,
-      cleanliness,
-      studySocial,
-      smoking,
-      okayWithSmoking,
-      pets,
-      okayWithPets,
-      interests,
-      traits,
-      bio,
-    });
-    setShowAnimalModal(true);
+    if (!user?.userId) {
+      setSaveError("No authenticated user found. Please sign in again.");
+      return;
+    }
+
+    const payload = mapFormToProfilePayload(draft);
+    setSubmitting(true);
+
+    try {
+      let latestUser = user;
+
+      if (payload.name && payload.name !== user.name) {
+        const renamed = await updateUser(user.userId, { name: payload.name });
+        if (renamed) {
+          latestUser = renamed;
+          setUser(renamed);
+        }
+      }
+
+      const updated = await updateUser(user.userId, { profile: payload.profile });
+      if (updated) {
+        latestUser = updated;
+        setUser(updated);
+      }
+
+      resetDraft();
+      nav("/landing", { replace: true, state: { fromProfileSave: true, user: latestUser } });
+    } catch (err) {
+      if (err?.code === "SESSION_EXPIRED") {
+        signOut("Session expired. Please sign in again.");
+        return;
+      }
+      setSaveError(err?.message || "Unable to save profile right now.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loadingProfile) {
+    return (
+      <div className="container">
+        <div className="card">
+          <div className="cardBody">Loading your profile...</div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -143,20 +222,26 @@ export default function ProfileAboutYou() {
         <ProgressHeader step={2} total={2} title="About you" />
 
         <div className="cardHeader">
-          <h1 className="h1">Tell us what you’re like to live with.</h1>
+          <h1 className="h1">Tell us what you're like to live with.</h1>
           <p className="sub">
-            This is used for roommate matching. Pick what fits — keep it simple.
+            This is used for roommate matching. Pick what fits and keep it simple.
           </p>
         </div>
 
         <form className="cardBody" onSubmit={onSave}>
+          {saveError ? (
+            <div className="mb-4 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {saveError}
+            </div>
+          ) : null}
+
           <div className="grid2">
             <div className="field">
               <label>Display name</label>
               <input
                 className="input"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
+                value={about.displayName}
+                onChange={(e) => setAbout({ displayName: e.target.value })}
                 placeholder="e.g. Alex"
               />
               <div className="help">This is what other students will see.</div>
@@ -166,74 +251,118 @@ export default function ProfileAboutYou() {
               <label>Course / year (optional)</label>
               <input
                 className="input"
-                value={course}
-                onChange={(e) => setCourse(e.target.value)}
+                value={about.course}
+                onChange={(e) => setAbout({ course: e.target.value })}
                 placeholder="e.g. CS 2nd year"
               />
             </div>
 
             <div className="field">
               <label>Daily schedule</label>
-              <PillSelect ariaLabel="Daily schedule" options={SCHEDULE} value={schedule} onChange={setSchedule} />
+              <PillSelect
+                ariaLabel="Daily schedule"
+                options={SCHEDULE}
+                value={about.schedule}
+                onChange={(value) => setAbout({ schedule: value })}
+              />
             </div>
 
             <div className="field">
               <label>Noise preference</label>
-              <PillSelect ariaLabel="Noise preference" options={NOISE} value={noise} onChange={setNoise} />
+              <PillSelect
+                ariaLabel="Noise preference"
+                options={NOISE}
+                value={about.noise}
+                onChange={(value) => setAbout({ noise: value })}
+              />
             </div>
 
             <div className="field">
               <label>Cleanliness habits</label>
-              <PillSelect ariaLabel="Cleanliness habits" options={CLEAN} value={cleanliness} onChange={setCleanliness} />
+              <PillSelect
+                ariaLabel="Cleanliness habits"
+                options={CLEAN}
+                value={about.cleanliness}
+                onChange={(value) => setAbout({ cleanliness: value })}
+              />
             </div>
 
             <div className="field">
               <label>Study / social preference</label>
-              <PillSelect ariaLabel="Study/social" options={STUDY_SOCIAL} value={studySocial} onChange={setStudySocial} />
+              <PillSelect
+                ariaLabel="Study/social"
+                options={STUDY_SOCIAL}
+                value={about.studySocial}
+                onChange={(value) => setAbout({ studySocial: value })}
+              />
             </div>
 
             <div className="field">
               <label>Do you smoke?</label>
-              <PillSelect ariaLabel="Do you smoke" options={YES_NO} value={smoking} onChange={setSmoking} />
+              <PillSelect
+                ariaLabel="Do you smoke"
+                options={YES_NO}
+                value={about.smoking}
+                onChange={(value) => setAbout({ smoking: value })}
+              />
             </div>
 
             <div className="field">
               <label>Okay with a roommate who smokes?</label>
-              <PillSelect ariaLabel="Okay with smoking" options={YES_NO} value={okayWithSmoking} onChange={setOkayWithSmoking} />
+              <PillSelect
+                ariaLabel="Okay with smoking"
+                options={YES_NO}
+                value={about.okayWithSmoking}
+                onChange={(value) => setAbout({ okayWithSmoking: value })}
+              />
             </div>
 
             <div className="field">
               <label>Do you have pets?</label>
-              <PillSelect ariaLabel="Do you have pets" options={YES_NO} value={pets} onChange={setPets} />
+              <PillSelect
+                ariaLabel="Do you have pets"
+                options={YES_NO}
+                value={about.pets}
+                onChange={(value) => setAbout({ pets: value })}
+              />
             </div>
 
             <div className="field">
               <label>Okay with pets in the home?</label>
-              <PillSelect ariaLabel="Okay with pets" options={YES_NO} value={okayWithPets} onChange={setOkayWithPets} />
+              <PillSelect
+                ariaLabel="Okay with pets"
+                options={YES_NO}
+                value={about.okayWithPets}
+                onChange={(value) => setAbout({ okayWithPets: value })}
+              />
             </div>
           </div>
 
           <div className="sectionTitle">Interest tags</div>
-          <TagPicker value={interests} onChange={setInterests} suggested={INTERESTS} />
-          <div className="help">These can help explain matches (“you both like hiking”).</div>
+          <TagPicker
+            value={about.interests}
+            onChange={(value) => setAbout({ interests: value })}
+            suggested={INTERESTS}
+          />
+          <div className="help">These can help explain matches.</div>
 
           <div className="sectionTitle">Quick descriptors</div>
           <div className="help" style={{ marginBottom: 10 }}>
-            Pick a few — these will appear as a short “summary line” in match cards.
+            Pick a few, these will appear as a short summary line in match cards.
           </div>
           <div className="row">
-            {TRAITS.map((t) => {
-              const active = traits.includes(t);
+            {TRAITS.map((trait) => {
+              const active = about.traits?.includes(trait);
               return (
                 <button
-                  key={t}
+                  key={trait}
                   type="button"
                   className="pill"
                   data-active={active}
-                  onClick={() => toggleTrait(t)}
+                  onClick={() => toggleTrait(trait)}
                   aria-pressed={active}
                 >
-                  {t}
+                  {trait}
                 </button>
               );
             })}
@@ -244,20 +373,20 @@ export default function ProfileAboutYou() {
             <label style={{ display: "none" }}>Bio</label>
             <textarea
               className="textarea"
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
+              value={about.bio}
+              onChange={(e) => setAbout({ bio: e.target.value })}
               maxLength={600}
               placeholder="A few lines about your routine, cooking, guests, and how you like to communicate."
             />
-            <div className="help">{bio.length}/600</div>
+            <div className="help">{about.bio.length}/600</div>
           </div>
 
           <div className="btnBar" style={{ marginTop: 18 }}>
             <button type="button" className="btn btnGhost" onClick={() => nav("/profile/housing")}>
-              ← Back
+              Back
             </button>
-            <button type="submit" className="btn btnPrimary">
-              Save profile
+            <button type="submit" className="btn btnPrimary" disabled={submitting}>
+              {submitting ? "Saving..." : "Save profile"}
             </button>
           </div>
         </form>

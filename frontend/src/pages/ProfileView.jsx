@@ -1,112 +1,89 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useProfile } from "../context/ProfileContext.jsx";
-import PillSelect from "../components/PillSelect.jsx";
-import TagPicker from "../components/TagPicker.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
+import {
+  mapBackendProfileToProfileView,
+  mapProfileViewToBackendProfile,
+} from "../lib/profileMapping";
+import { getUser, updateUser } from "../lib/usersApi";
 import "./ProfileView.css";
 
-const ROOM_TYPES = [
-  { value: "single", label: "Single room" },
-  { value: "shared", label: "Shared room" },
-  { value: "studio", label: "Studio" },
-  { value: "any", label: "Any" },
-];
+const STEPS = ["Basic", "Housing", "About You"];
+const DEFAULT_PROFILE = mapBackendProfileToProfileView({});
 
-const AREA = [
-  { value: "city", label: "City centre" },
-  { value: "suburbs", label: "Suburbs" },
-  { value: "either", label: "Either" },
-];
-
-const MOVE_IN = [
-  { value: "asap", label: "ASAP" },
-  { value: "this_month", label: "This month" },
-  { value: "next_month", label: "Next month" },
-  { value: "flexible", label: "Flexible" },
-];
-
-const AMENITIES = [
-  "Garden / outdoor space",
-  "Ensuite bathroom",
-  "Bills included",
-  "Washing machine",
-  "Dishwasher",
-  "Bike storage",
-  "Parking",
-  "Near campus",
-  "Near public transport",
-  "Accessible / step-free",
-  "Quiet area",
-];
-
-const SCHEDULE = [
-  { value: "early", label: "Early riser" },
-  { value: "normal", label: "Normal" },
-  { value: "late", label: "Late schedule" },
-];
-
-const NOISE = [
-  { value: "quiet", label: "Quiet" },
-  { value: "neutral", label: "Neutral" },
-  { value: "lively", label: "Lively" },
-];
-
-const CLEAN = [
-  { value: "very_clean", label: "Very clean" },
-  { value: "average", label: "Average" },
-  { value: "casual", label: "Casual" },
-];
-
-const STUDY_SOCIAL = [
-  { value: "mostly_study", label: "Mostly study / chill at home" },
-  { value: "balanced", label: "Balanced" },
-  { value: "often_out", label: "Often out / social" },
-];
-
-const YES_NO = [
-  { value: "yes", label: "Yes" },
-  { value: "no", label: "No" },
-  { value: "sometimes", label: "Sometimes" },
-];
-
-const INTERESTS = [
-  "Gym", "Sports", "Gaming", "Music", "Cooking", "Reading",
-  "Nightlife", "Coffee", "Films", "Hiking", "Societies", "Tech",
-  "Art", "Travel",
-];
-
-const TRAITS = [
-  "Late schedule, quiet, tidy",
-  "Social, flexible schedule, medium tidy",
-  "Quiet, independent, tidy",
-  "Flexible, calm, low conflict",
-  "Social, group-oriented, energetic",
-  "Early riser, quiet, routine-based",
-  "Adaptable, medium social",
-  "Quiet, clean, low-noise",
-  "Friendly but respects space",
-  "Studious weekdays, social weekends",
-  "Likes shared meals sometimes",
-  "Good communicator",
-  "Guest-friendly (with notice)",
-  "Minimalist / clutter-free",
-  "Headphones for music",
-  "Neat kitchen person",
-];
-
-const STEPS = ["Course, quick info & bio", "Housing requirements", "About you"];
-
-function labelFor(value, options) {
-  return options.find((o) => o.value === value)?.label ?? value;
+function omitUndefinedFields(obj) {
+  return Object.fromEntries(Object.entries(obj).filter(([, value]) => value !== undefined));
 }
 
 export default function ProfileView() {
   const navigate = useNavigate();
-  const { profile, updateProfile } = useProfile();
-  const [step, setStep] = useState(0);
+  const { user, setUser, signOut } = useAuth();
+  const [step, setStep] = useState(0); // 0,1,2
   const [isEditing, setIsEditing] = useState(false);
   const [message, setMessage] = useState("");
-  const [draft, setDraft] = useState(profile);
+  const [loadError, setLoadError] = useState("");
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [backendProfile, setBackendProfile] = useState({});
+
+  useEffect(() => {
+    if (!message) return;
+
+    const timer = setTimeout(() => {
+      setMessage("");
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [message]);
+
+  const [profile, setProfile] = useState(DEFAULT_PROFILE);
+
+  const [draft, setDraft] = useState(DEFAULT_PROFILE);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadProfile() {
+      if (!user?.userId) {
+        setLoadingProfile(false);
+        return;
+      }
+
+      setLoadingProfile(true);
+      setLoadError("");
+
+      try {
+        const freshUser = await getUser(user.userId);
+        if (!isMounted || !freshUser) return;
+
+        const mapped = mapBackendProfileToProfileView(freshUser.profile || {});
+        setBackendProfile(freshUser.profile || {});
+        setProfile(mapped);
+        setDraft(mapped);
+        setUser(freshUser);
+      } catch (err) {
+        if (!isMounted) return;
+        if (err?.code === "SESSION_EXPIRED") {
+          signOut("Session expired. Please sign in again.");
+          return;
+        }
+        setLoadError(err?.message || "Unable to load profile.");
+      } finally {
+        if (isMounted) {
+          setLoadingProfile(false);
+        }
+      }
+    }
+
+    loadProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, [setUser, signOut, user?.userId]);
+
+  const fallbackLetter = (user?.name || "U").charAt(0).toUpperCase();
+
+  // Local uploaded image preview (doesn't require backend)
   const [photoPreview, setPhotoPreview] = useState("");
 
   const accent = "#059669";
@@ -151,14 +128,47 @@ export default function ProfileView() {
     setDraft(profile);
     setIsEditing(false);
     setPhotoPreview("");
-    setMessage("Edit cancelled");
+    setLoadError("");
+    setMessage("Edit cancelled.");
   }
 
-  function saveEdit(e) {
+  async function saveEdit(e) {
     e.preventDefault();
-    updateProfile(draft);
-    setIsEditing(false);
-    setMessage("Profile updated");
+    setLoadError("");
+
+    if (!user?.userId) {
+      setLoadError("No authenticated user found. Please sign in again.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const profilePatch = omitUndefinedFields({
+        ...backendProfile,
+        ...mapProfileViewToBackendProfile(draft),
+      });
+
+      const updatedUser = await updateUser(user.userId, { profile: profilePatch });
+      if (updatedUser) {
+        setUser(updatedUser);
+      }
+
+      const mapped = mapBackendProfileToProfileView(updatedUser?.profile || profilePatch);
+      setBackendProfile(updatedUser?.profile || profilePatch);
+      setProfile(mapped);
+      setDraft(mapped);
+      setIsEditing(false);
+      setMessage("Profile updated.");
+    } catch (err) {
+      if (err?.code === "SESSION_EXPIRED") {
+        signOut("Session expired. Please sign in again.");
+        return;
+      }
+      setLoadError(err?.message || "Unable to save profile changes.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function onUploadPhoto(e) {
@@ -170,7 +180,16 @@ export default function ProfileView() {
   }
 
   const displayedPhoto = photoPreview || profile.photoUrl;
-  const fallbackLetter = (profile.displayName || "?")[0].toUpperCase();
+
+  if (loadingProfile) {
+    return (
+      <div className="page" style={{ background: pageBg, color: text }}>
+        <div className="card" style={{ borderColor: accent, background: cardBg }}>
+          <div className="cardBody">Loading profile...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page" style={{ background: pageBg, color: text }}>
@@ -192,6 +211,7 @@ export default function ProfileView() {
         </div>
 
         {message && <div className="toast">{message}</div>}
+        {loadError && <div className="toast" style={{ background: "#FEE2E2", color: "#9F1239" }}>{loadError}</div>}
 
         <div className="stepper">
           {STEPS.map((label, i) => (
@@ -214,6 +234,7 @@ export default function ProfileView() {
               accent={accent}
               displayedPhoto={displayedPhoto}
               fallbackLetter={fallbackLetter}
+              fallbackLetter={fallbackLetter}
             />
             {step === 0 && <QuickInfoView profile={profile} />}
             {step === 1 && <HousingView profile={profile} />}
@@ -224,6 +245,7 @@ export default function ProfileView() {
             <PhotoEdit
               accent={accent}
               displayedPhoto={photoPreview || draft.photoUrl}
+              fallbackLetter={fallbackLetter}
               fallbackLetter={fallbackLetter}
               draft={draft}
               setDraft={setDraft}
@@ -246,8 +268,9 @@ export default function ProfileView() {
                   Next
                 </button>
               </div>
-              <button className="btn btnSave" type="submit">
-                Save Changes
+
+              <button className="btn btnSave" type="submit" disabled={saving}>
+                {saving ? "Saving..." : "💾 Save Changes"}
               </button>
             </div>
           </form>
