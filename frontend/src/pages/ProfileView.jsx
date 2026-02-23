@@ -1,63 +1,128 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useProfile } from "../context/ProfileContext.jsx";
+import PillSelect from "../components/PillSelect.jsx";
+import TagPicker from "../components/TagPicker.jsx";
 import "./ProfileView.css";
 
-const STEPS = ["Basic", "Housing", "About You"];
+const ROOM_TYPES = [
+  { value: "single", label: "Single room" },
+  { value: "shared", label: "Shared room" },
+  { value: "studio", label: "Studio" },
+  { value: "any", label: "Any" },
+];
+
+const AREA = [
+  { value: "city", label: "City centre" },
+  { value: "suburbs", label: "Suburbs" },
+  { value: "either", label: "Either" },
+];
+
+const MOVE_IN = [
+  { value: "asap", label: "ASAP" },
+  { value: "this_month", label: "This month" },
+  { value: "next_month", label: "Next month" },
+  { value: "flexible", label: "Flexible" },
+];
+
+const AMENITIES = [
+  "Garden / outdoor space",
+  "Ensuite bathroom",
+  "Bills included",
+  "Washing machine",
+  "Dishwasher",
+  "Bike storage",
+  "Parking",
+  "Near campus",
+  "Near public transport",
+  "Accessible / step-free",
+  "Quiet area",
+];
+
+const SCHEDULE = [
+  { value: "early", label: "Early riser" },
+  { value: "normal", label: "Normal" },
+  { value: "late", label: "Late schedule" },
+];
+
+const NOISE = [
+  { value: "quiet", label: "Quiet" },
+  { value: "neutral", label: "Neutral" },
+  { value: "lively", label: "Lively" },
+];
+
+const CLEAN = [
+  { value: "very_clean", label: "Very clean" },
+  { value: "average", label: "Average" },
+  { value: "casual", label: "Casual" },
+];
+
+const STUDY_SOCIAL = [
+  { value: "mostly_study", label: "Mostly study / chill at home" },
+  { value: "balanced", label: "Balanced" },
+  { value: "often_out", label: "Often out / social" },
+];
+
+const YES_NO = [
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
+  { value: "sometimes", label: "Sometimes" },
+];
+
+const INTERESTS = [
+  "Gym", "Sports", "Gaming", "Music", "Cooking", "Reading",
+  "Nightlife", "Coffee", "Films", "Hiking", "Societies", "Tech",
+  "Art", "Travel",
+];
+
+const TRAITS = [
+  "Late schedule, quiet, tidy",
+  "Social, flexible schedule, medium tidy",
+  "Quiet, independent, tidy",
+  "Flexible, calm, low conflict",
+  "Social, group-oriented, energetic",
+  "Early riser, quiet, routine-based",
+  "Adaptable, medium social",
+  "Quiet, clean, low-noise",
+  "Friendly but respects space",
+  "Studious weekdays, social weekends",
+  "Likes shared meals sometimes",
+  "Good communicator",
+  "Guest-friendly (with notice)",
+  "Minimalist / clutter-free",
+  "Headphones for music",
+  "Neat kitchen person",
+];
+
+const STEPS = ["Course, quick info & bio", "Housing requirements", "About you"];
+
+function labelFor(value, options) {
+  return options.find((o) => o.value === value)?.label ?? value;
+}
 
 export default function ProfileView() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(0); // 0,1,2
+  const { profile, updateProfile } = useProfile();
+  const [step, setStep] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [message, setMessage] = useState("");
-
-  useEffect(() => {
-  if (!message) return;
-
-  const timer = setTimeout(() => {
-    setMessage("");
-  }, 3000);
-
-  return () => clearTimeout(timer);
-}, [message]);
-
-
-  const [profile, setProfile] = useState({
-    // Step 1: Basic
-    photoUrl: "", // optional external URL
-    bio: "I enjoy fun but also do need to study 🚀",
-    year: "2",
-    course: "Computer Science",
-
-    // Step 2: Housing requirements
-    budget: "€900/month",
-    location: "Dublin City Centre / Rathmines / Ranelagh",
-    moveInDate: "2026-02-15",
-    leaseLength: "6-12 months",
-    smokersOk: false,
-    petsOk: true,
-    quietHours: "23:00 - 07:00",
-
-    // Step 3: About you
-    socialPreference: "Medium", // Low / Medium / High
-    routine: "Early-ish — lectures, gym, study, chill",
-    cleanliness: "High",
-    cooking: "Sometimes",
-    bedtime: "23:30",
-    wakeTime: "07:30",
-    notes: "I’m friendly, organised, and respect shared spaces.",
-  });
-
-  // Draft used in edit mode
   const [draft, setDraft] = useState(profile);
-
-  // Local uploaded image preview (doesn't require backend)
   const [photoPreview, setPhotoPreview] = useState("");
 
-  // Unified light green + white theme
-  const accent = "#059669";       // emerald green
-  const pageBg = "#FFFFFF";       // white background
-  const cardBg = "#FFFFFF";       // white card
+  const accent = "#059669";
+  const pageBg = "#FFFFFF";
+  const cardBg = "#FFFFFF";
   const text = "#1F2933";
+
+  useEffect(() => {
+    setDraft(profile);
+  }, [profile]);
+
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(""), 3000);
+    return () => clearTimeout(timer);
+  }, [message]);
 
   const stepTitle = useMemo(() => STEPS[step], [step]);
 
@@ -86,55 +151,48 @@ export default function ProfileView() {
     setDraft(profile);
     setIsEditing(false);
     setPhotoPreview("");
-    setMessage("Edit cancelled ❌");
+    setMessage("Edit cancelled");
   }
 
   function saveEdit(e) {
     e.preventDefault();
-    setProfile(draft);
+    updateProfile(draft);
     setIsEditing(false);
-    setMessage("Profile updated ✅");
+    setMessage("Profile updated");
   }
 
   function onUploadPhoto(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = () => setPhotoPreview(String(reader.result));
     reader.readAsDataURL(file);
   }
 
   const displayedPhoto = photoPreview || profile.photoUrl;
+  const fallbackLetter = (profile.displayName || "?")[0].toUpperCase();
 
   return (
     <div className="page" style={{ background: pageBg, color: text }}>
       <div className="card" style={{ borderColor: accent, background: cardBg }}>
         <div className="header" style={{ background: accent }}>
           <div className="headerRow">
-            <div className="title">👤 My Profile</div>
-
-            <div className="headerActions">
-              {!isEditing ? (
-                <button className="btn btnLight" type="button" onClick={startEdit}>
-                  ✏️ Edit
-                </button>
-              ) : (
+            <div className="title">My Profile</div>
+            {isEditing && (
+              <div className="headerActions">
                 <button className="btn btnLight" type="button" onClick={cancelEdit}>
-                  ❌ Cancel
+                  Cancel
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-
           <div className="subtitle">
-            Step {step + 1} of {STEPS.length}: <strong>{stepTitle}</strong>
+            Step {step + 1} of {STEPS.length}: {stepTitle}
           </div>
         </div>
 
         {message && <div className="toast">{message}</div>}
 
-        {/* Stepper */}
         <div className="stepper">
           {STEPS.map((label, i) => (
             <button
@@ -142,9 +200,7 @@ export default function ProfileView() {
               type="button"
               onClick={() => goStep(i)}
               className={`step ${i === step ? "active" : ""}`}
-              style={{
-                borderColor: accent,
-              }}
+              style={{ borderColor: accent }}
             >
               <span className="stepNum">{i + 1}</span>
               <span className="stepLabel">{label}</span>
@@ -152,16 +208,14 @@ export default function ProfileView() {
           ))}
         </div>
 
-        {/* Content */}
         {!isEditing ? (
           <div className="content">
             <PhotoBlock
               accent={accent}
               displayedPhoto={displayedPhoto}
-              fallbackLetter={"B"}
+              fallbackLetter={fallbackLetter}
             />
-
-            {step === 0 && <BasicView profile={profile} />}
+            {step === 0 && <QuickInfoView profile={profile} />}
             {step === 1 && <HousingView profile={profile} />}
             {step === 2 && <AboutView profile={profile} />}
           </div>
@@ -170,25 +224,18 @@ export default function ProfileView() {
             <PhotoEdit
               accent={accent}
               displayedPhoto={photoPreview || draft.photoUrl}
-              fallbackLetter={"B"}
+              fallbackLetter={fallbackLetter}
               draft={draft}
               setDraft={setDraft}
               onUploadPhoto={onUploadPhoto}
             />
-
-            {step === 0 && <BasicEdit draft={draft} setDraft={setDraft} />}
+            {step === 0 && <QuickInfoEdit draft={draft} setDraft={setDraft} />}
             {step === 1 && <HousingEdit draft={draft} setDraft={setDraft} />}
             {step === 2 && <AboutEdit draft={draft} setDraft={setDraft} />}
-
             <div className="footerRow">
               <div className="navButtons">
-                <button
-                  className="btn btnDark"
-                  type="button"
-                  onClick={back}
-                  disabled={step === 0}
-                >
-                  ◀ Back
+                <button className="btn btnDark" type="button" onClick={back} disabled={step === 0}>
+                  Back
                 </button>
                 <button
                   className="btn btnDark"
@@ -196,28 +243,21 @@ export default function ProfileView() {
                   onClick={next}
                   disabled={step === STEPS.length - 1}
                 >
-                  Next ▶
+                  Next
                 </button>
               </div>
-
               <button className="btn btnSave" type="submit">
-                💾 Save Changes
+                Save Changes
               </button>
             </div>
           </form>
         )}
 
-        {/* Bottom navigation for view mode too */}
         {!isEditing && (
           <div className="footerRow">
             <div className="navButtons">
-              <button
-                className="btn btnDark"
-                type="button"
-                onClick={back}
-                disabled={step === 0}
-              >
-                ◀ Back
+              <button className="btn btnDark" type="button" onClick={back} disabled={step === 0}>
+                Back
               </button>
               <button
                 className="btn btnDark"
@@ -225,19 +265,14 @@ export default function ProfileView() {
                 onClick={next}
                 disabled={step === STEPS.length - 1}
               >
-                Next ▶
+                Next
               </button>
             </div>
-
             <div className="flex items-center gap-3">
               <button className="btn btnDark" type="button" onClick={startEdit}>
-                ✏️ Edit This Step
+                Edit
               </button>
-              <button 
-                className="btn btnSave" 
-                type="button" 
-                onClick={() => navigate("/landing")}
-              >
+              <button className="btn btnSave" type="button" onClick={() => navigate("/landing")}>
                 Done
               </button>
             </div>
@@ -248,138 +283,132 @@ export default function ProfileView() {
   );
 }
 
-/* -------------------- Shared blocks -------------------- */
-
 function PhotoBlock({ accent, displayedPhoto, fallbackLetter }) {
   return (
     <div className="photoRow">
       {displayedPhoto ? (
         <img className="photo" src={displayedPhoto} alt="Profile" />
       ) : (
-        <div className="avatar" style={{ background: accent }}>
-          {fallbackLetter}
-        </div>
+        <div className="avatar" style={{ background: accent }}>{fallbackLetter}</div>
       )}
     </div>
   );
 }
 
-function PhotoEdit({
-  accent,
-  displayedPhoto,
-  fallbackLetter,
-  draft,
-  setDraft,
-  onUploadPhoto,
-}) {
+function PhotoEdit({ accent, displayedPhoto, fallbackLetter, draft, setDraft, onUploadPhoto }) {
   return (
     <div className="photoEdit">
       <div className="photoRow">
         {displayedPhoto ? (
           <img className="photo" src={displayedPhoto} alt="Profile preview" />
         ) : (
-          <div className="avatar" style={{ background: accent }}>
-            {fallbackLetter}
-          </div>
+          <div className="avatar" style={{ background: accent }}>{fallbackLetter}</div>
         )}
       </div>
-
       <div className="grid2">
         <div className="field">
           <label className="label">Upload photo</label>
           <input className="input" type="file" accept="image/*" onChange={onUploadPhoto} />
-          <div className="hint">Uses a local preview (no backend needed).</div>
         </div>
-
         <div className="field">
           <label className="label">Or photo URL</label>
           <input
             className="input"
-            value={draft.photoUrl}
+            value={draft.photoUrl || ""}
             onChange={(e) => setDraft({ ...draft, photoUrl: e.target.value })}
             placeholder="https://..."
           />
-          <div className="hint">If you paste a URL, it will display it.</div>
         </div>
       </div>
     </div>
   );
 }
 
-/* -------------------- Step 1: Basic -------------------- */
-
-function BasicView({ profile }) {
+function QuickInfoView({ profile }) {
   return (
     <div className="panel">
-      <h2 className="h2">Basic</h2>
+      <h2 className="h2">Course, quick info & bio</h2>
       <div className="kv">
-        <div><strong>Year:</strong> {profile.year}</div>
-        <div><strong>Course:</strong> {profile.course}</div>
-        <div><strong>Bio:</strong> {profile.bio}</div>
+        <div><strong>Display name:</strong> {profile.displayName || "—"}</div>
+        <div><strong>Course / year:</strong> {profile.course || "—"}</div>
+        <div><strong>Quick descriptors:</strong> {Array.isArray(profile.traits) && profile.traits.length > 0 ? profile.traits.join(", ") : "None"}</div>
+        <div><strong>Bio:</strong> {profile.bio || "—"}</div>
       </div>
     </div>
   );
 }
 
-function BasicEdit({ draft, setDraft }) {
+function QuickInfoEdit({ draft, setDraft }) {
+  function toggleTrait(t) {
+    const prev = draft.traits ?? [];
+    const next = prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t];
+    setDraft({ ...draft, traits: next });
+  }
+
   return (
     <div className="panel">
-      <h2 className="h2">Basic</h2>
+      <h2 className="h2">Course, quick info & bio</h2>
       <div className="grid2">
         <div className="field">
-          <label className="label">Year</label>
-          <select
-            className="input"
-            value={draft.year}
-            onChange={(e) => setDraft({ ...draft, year: e.target.value })}
-          >
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="Masters">Masters</option>
-          </select>
-        </div>
-
-        <div className="field">
-          <label className="label">Course</label>
+          <label className="label">Display name</label>
           <input
             className="input"
-            value={draft.course}
+            value={draft.displayName ?? ""}
+            onChange={(e) => setDraft({ ...draft, displayName: e.target.value })}
+            placeholder="e.g. Alex"
+          />
+        </div>
+        <div className="field">
+          <label className="label">Course / year</label>
+          <input
+            className="input"
+            value={draft.course ?? ""}
             onChange={(e) => setDraft({ ...draft, course: e.target.value })}
-            placeholder="Computer Science"
+            placeholder="e.g. CS 2nd year"
           />
         </div>
       </div>
-
+      <div className="sectionTitle">Quick descriptors</div>
+      <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
+        {TRAITS.map((t) => (
+          <button
+            key={t}
+            type="button"
+            className="pill"
+            data-active={(draft.traits ?? []).includes(t)}
+            onClick={() => toggleTrait(t)}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+      <div className="sectionTitle">Bio</div>
       <div className="field">
-        <label className="label">Bio</label>
         <textarea
-          className="input"
-          rows={3}
-          value={draft.bio}
+          className="textarea"
+          value={draft.bio ?? ""}
           onChange={(e) => setDraft({ ...draft, bio: e.target.value })}
-          placeholder="A short intro..."
+          maxLength={600}
+          placeholder="A few lines about yourself..."
         />
+        <div className="help">{(draft.bio ?? "").length}/600</div>
       </div>
     </div>
   );
 }
-
-/* -------------------- Step 2: Housing -------------------- */
 
 function HousingView({ profile }) {
   return (
     <div className="panel">
       <h2 className="h2">Housing requirements</h2>
       <div className="kv">
-        <div><strong>Budget:</strong> {profile.budget}</div>
-        <div><strong>Preferred location:</strong> {profile.location}</div>
-        <div><strong>Move-in date:</strong> {profile.moveInDate}</div>
-        <div><strong>Lease length:</strong> {profile.leaseLength}</div>
-        <div><strong>Smokers OK:</strong> {profile.smokersOk ? "Yes" : "No"}</div>
-        <div><strong>Pets OK:</strong> {profile.petsOk ? "Yes" : "No"}</div>
-        <div><strong>Quiet hours:</strong> {profile.quietHours}</div>
+        <div><strong>Budget:</strong> €{profile.budgetMin ?? 0} – €{profile.budgetMax ?? 0} / month</div>
+        <div><strong>Preferred move-in:</strong> {labelFor(profile.moveIn, MOVE_IN)}</div>
+        <div><strong>Room type:</strong> {labelFor(profile.roomType, ROOM_TYPES)}</div>
+        <div><strong>Area:</strong> {labelFor(profile.area, AREA)}</div>
+        <div><strong>Lease length:</strong> {profile.leaseMonths ?? 0} months</div>
+        <div><strong>Amenities:</strong> {Array.isArray(profile.amenities) && profile.amenities.length > 0 ? profile.amenities.join(", ") : "None selected"}</div>
+        <div><strong>Dealbreakers / notes:</strong> {profile.notes || "None"}</div>
       </div>
     </div>
   );
@@ -389,102 +418,78 @@ function HousingEdit({ draft, setDraft }) {
   return (
     <div className="panel">
       <h2 className="h2">Housing requirements</h2>
-
       <div className="grid2">
         <div className="field">
-          <label className="label">Budget</label>
+          <label className="label">Budget min (€/month)</label>
           <input
             className="input"
-            value={draft.budget}
-            onChange={(e) => setDraft({ ...draft, budget: e.target.value })}
-            placeholder="€900/month"
+            type="number"
+            value={draft.budgetMin ?? ""}
+            onChange={(e) => setDraft({ ...draft, budgetMin: Number(e.target.value) || 0 })}
           />
         </div>
-
         <div className="field">
-          <label className="label">Move-in date</label>
+          <label className="label">Budget max (€/month)</label>
           <input
             className="input"
-            type="date"
-            value={draft.moveInDate}
-            onChange={(e) => setDraft({ ...draft, moveInDate: e.target.value })}
+            type="number"
+            value={draft.budgetMax ?? ""}
+            onChange={(e) => setDraft({ ...draft, budgetMax: Number(e.target.value) || 0 })}
           />
         </div>
-      </div>
-
-      <div className="field">
-        <label className="label">Preferred location(s)</label>
-        <input
-          className="input"
-          value={draft.location}
-          onChange={(e) => setDraft({ ...draft, location: e.target.value })}
-          placeholder="Areas you like..."
-        />
-      </div>
-
-      <div className="grid2">
         <div className="field">
-          <label className="label">Lease length</label>
-          <select
-            className="input"
-            value={draft.leaseLength}
-            onChange={(e) => setDraft({ ...draft, leaseLength: e.target.value })}
-          >
-            <option>3 months</option>
-            <option>6 months</option>
-            <option>6-12 months</option>
-            <option>12 months</option>
-          </select>
+          <label className="label">Preferred move-in</label>
+          <PillSelect ariaLabel="Move-in" options={MOVE_IN} value={draft.moveIn ?? "flexible"} onChange={(v) => setDraft({ ...draft, moveIn: v })} />
         </div>
-
         <div className="field">
-          <label className="label">Quiet hours</label>
+          <label className="label">Room type</label>
+          <PillSelect ariaLabel="Room type" options={ROOM_TYPES} value={draft.roomType ?? "any"} onChange={(v) => setDraft({ ...draft, roomType: v })} />
+        </div>
+        <div className="field">
+          <label className="label">Area</label>
+          <PillSelect ariaLabel="Area" options={AREA} value={draft.area ?? "either"} onChange={(v) => setDraft({ ...draft, area: v })} />
+        </div>
+        <div className="field">
+          <label className="label">Lease length (months)</label>
           <input
             className="input"
-            value={draft.quietHours}
-            onChange={(e) => setDraft({ ...draft, quietHours: e.target.value })}
-            placeholder="23:00 - 07:00"
+            type="number"
+            min="1"
+            max="24"
+            value={draft.leaseMonths ?? ""}
+            onChange={(e) => setDraft({ ...draft, leaseMonths: Number(e.target.value) || 0 })}
+          />
+        </div>
+        <div className="field" style={{ gridColumn: "1 / -1" }}>
+          <label className="label">Dealbreakers (optional)</label>
+          <input
+            className="input"
+            value={draft.notes ?? ""}
+            onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
+            placeholder="e.g. near Luas, guests ok..."
           />
         </div>
       </div>
-
-      <div className="toggleRow">
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={draft.smokersOk}
-            onChange={(e) => setDraft({ ...draft, smokersOk: e.target.checked })}
-          />
-          <span>Smokers OK</span>
-        </label>
-
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={draft.petsOk}
-            onChange={(e) => setDraft({ ...draft, petsOk: e.target.checked })}
-          />
-          <span>Pets OK</span>
-        </label>
-      </div>
+      <div className="sectionTitle">Amenities</div>
+      <TagPicker value={draft.amenities ?? []} onChange={(v) => setDraft({ ...draft, amenities: v })} suggested={AMENITIES} />
     </div>
   );
 }
-
-/* -------------------- Step 3: About -------------------- */
 
 function AboutView({ profile }) {
   return (
     <div className="panel">
       <h2 className="h2">About you</h2>
       <div className="kv">
-        <div><strong>Social preference:</strong> {profile.socialPreference}</div>
-        <div><strong>Routine:</strong> {profile.routine}</div>
-        <div><strong>Cleanliness:</strong> {profile.cleanliness}</div>
-        <div><strong>Cooking:</strong> {profile.cooking}</div>
-        <div><strong>Bedtime:</strong> {profile.bedtime}</div>
-        <div><strong>Wake time:</strong> {profile.wakeTime}</div>
-        <div><strong>Extra notes:</strong> {profile.notes}</div>
+        <div><strong>Daily schedule:</strong> {labelFor(profile.schedule, SCHEDULE)}</div>
+        <div><strong>Noise preference:</strong> {labelFor(profile.noise, NOISE)}</div>
+        <div><strong>Cleanliness:</strong> {labelFor(profile.cleanliness, CLEAN)}</div>
+        <div><strong>Study / social:</strong> {labelFor(profile.studySocial, STUDY_SOCIAL)}</div>
+        <div><strong>Smoking:</strong> {profile.smoking || "—"}</div>
+        <div><strong>Okay with smoking:</strong> {profile.okayWithSmoking || "—"}</div>
+        <div><strong>Pets:</strong> {profile.pets || "—"}</div>
+        <div><strong>Okay with pets:</strong> {profile.okayWithPets || "—"}</div>
+        <div><strong>Interests:</strong> {Array.isArray(profile.interests) && profile.interests.length > 0 ? profile.interests.join(", ") : "None"}</div>
       </div>
     </div>
   );
@@ -494,92 +499,42 @@ function AboutEdit({ draft, setDraft }) {
   return (
     <div className="panel">
       <h2 className="h2">About you</h2>
-
       <div className="grid2">
         <div className="field">
-          <label className="label">Social preference</label>
-          <select
-            className="input"
-            value={draft.socialPreference}
-            onChange={(e) => setDraft({ ...draft, socialPreference: e.target.value })}
-          >
-            <option>Low</option>
-            <option>Medium</option>
-            <option>High</option>
-          </select>
+          <label className="label">Daily schedule</label>
+          <PillSelect ariaLabel="Schedule" options={SCHEDULE} value={draft.schedule ?? "normal"} onChange={(v) => setDraft({ ...draft, schedule: v })} />
         </div>
-
+        <div className="field">
+          <label className="label">Noise preference</label>
+          <PillSelect ariaLabel="Noise" options={NOISE} value={draft.noise ?? "neutral"} onChange={(v) => setDraft({ ...draft, noise: v })} />
+        </div>
         <div className="field">
           <label className="label">Cleanliness</label>
-          <select
-            className="input"
-            value={draft.cleanliness}
-            onChange={(e) => setDraft({ ...draft, cleanliness: e.target.value })}
-          >
-            <option>Low</option>
-            <option>Medium</option>
-            <option>High</option>
-          </select>
+          <PillSelect ariaLabel="Cleanliness" options={CLEAN} value={draft.cleanliness ?? "average"} onChange={(v) => setDraft({ ...draft, cleanliness: v })} />
+        </div>
+        <div className="field">
+          <label className="label">Study / social</label>
+          <PillSelect ariaLabel="Study social" options={STUDY_SOCIAL} value={draft.studySocial ?? "balanced"} onChange={(v) => setDraft({ ...draft, studySocial: v })} />
+        </div>
+        <div className="field">
+          <label className="label">Do you smoke?</label>
+          <PillSelect ariaLabel="Smoking" options={YES_NO} value={draft.smoking ?? "no"} onChange={(v) => setDraft({ ...draft, smoking: v })} />
+        </div>
+        <div className="field">
+          <label className="label">Okay with smoking?</label>
+          <PillSelect ariaLabel="Okay smoking" options={YES_NO} value={draft.okayWithSmoking ?? "no"} onChange={(v) => setDraft({ ...draft, okayWithSmoking: v })} />
+        </div>
+        <div className="field">
+          <label className="label">Do you have pets?</label>
+          <PillSelect ariaLabel="Pets" options={YES_NO} value={draft.pets ?? "no"} onChange={(v) => setDraft({ ...draft, pets: v })} />
+        </div>
+        <div className="field">
+          <label className="label">Okay with pets?</label>
+          <PillSelect ariaLabel="Okay pets" options={YES_NO} value={draft.okayWithPets ?? "yes"} onChange={(v) => setDraft({ ...draft, okayWithPets: v })} />
         </div>
       </div>
-
-      <div className="field">
-        <label className="label">Daily routine</label>
-        <textarea
-          className="input"
-          rows={3}
-          value={draft.routine}
-          onChange={(e) => setDraft({ ...draft, routine: e.target.value })}
-          placeholder="How you spend a typical day..."
-        />
-      </div>
-
-      <div className="grid2">
-        <div className="field">
-          <label className="label">Cooking</label>
-          <select
-            className="input"
-            value={draft.cooking}
-            onChange={(e) => setDraft({ ...draft, cooking: e.target.value })}
-          >
-            <option>Never</option>
-            <option>Sometimes</option>
-            <option>Often</option>
-          </select>
-        </div>
-
-        <div className="field">
-          <label className="label">Bedtime</label>
-          <input
-            className="input"
-            type="time"
-            value={draft.bedtime}
-            onChange={(e) => setDraft({ ...draft, bedtime: e.target.value })}
-          />
-        </div>
-      </div>
-
-      <div className="grid2">
-        <div className="field">
-          <label className="label">Wake time</label>
-          <input
-            className="input"
-            type="time"
-            value={draft.wakeTime}
-            onChange={(e) => setDraft({ ...draft, wakeTime: e.target.value })}
-          />
-        </div>
-
-        <div className="field">
-          <label className="label">Extra notes</label>
-          <input
-            className="input"
-            value={draft.notes}
-            onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
-            placeholder="Anything else?"
-          />
-        </div>
-      </div>
+      <div className="sectionTitle">Interest tags</div>
+      <TagPicker value={draft.interests ?? []} onChange={(v) => setDraft({ ...draft, interests: v })} suggested={INTERESTS} />
     </div>
   );
 }

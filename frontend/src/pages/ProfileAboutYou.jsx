@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useProfile } from "../context/ProfileContext.jsx";
 import ProgressHeader from "../components/ProgressHeader.jsx";
 import PillSelect from "../components/PillSelect.jsx";
 import TagPicker from "../components/TagPicker.jsx";
@@ -62,22 +63,43 @@ const TRAITS = [
 
 export default function ProfileAboutYou() {
   const nav = useNavigate();
+  const { profile, setAbout } = useProfile();
 
-  const [displayName, setDisplayName] = useState("");
-  const [course, setCourse] = useState("");
-  const [schedule, setSchedule] = useState("normal");
-  const [noise, setNoise] = useState("neutral");
-  const [cleanliness, setCleanliness] = useState("average");
-  const [studySocial, setStudySocial] = useState("balanced");
+  const [displayName, setDisplayName] = useState(profile.displayName ?? "");
+  const [course, setCourse] = useState(profile.course ?? "");
+  const [schedule, setSchedule] = useState(profile.schedule ?? "normal");
+  const [noise, setNoise] = useState(profile.noise ?? "neutral");
+  const [cleanliness, setCleanliness] = useState(profile.cleanliness ?? "average");
+  const [studySocial, setStudySocial] = useState(profile.studySocial ?? "balanced");
 
-  const [smoking, setSmoking] = useState("no");
-  const [okayWithSmoking, setOkayWithSmoking] = useState("no");
-  const [pets, setPets] = useState("no");
-  const [okayWithPets, setOkayWithPets] = useState("yes");
+  const [smoking, setSmoking] = useState(profile.smoking ?? "no");
+  const [okayWithSmoking, setOkayWithSmoking] = useState(profile.okayWithSmoking ?? "no");
+  const [pets, setPets] = useState(profile.pets ?? "no");
+  const [okayWithPets, setOkayWithPets] = useState(profile.okayWithPets ?? "yes");
 
-  const [interests, setInterests] = useState([]);
-  const [traits, setTraits] = useState([]);
-  const [bio, setBio] = useState("");
+  const [interests, setInterests] = useState(profile.interests ?? []);
+  const [traits, setTraits] = useState(profile.traits ?? []);
+  const [bio, setBio] = useState(profile.bio ?? "");
+
+  useEffect(() => {
+    setDisplayName(profile.displayName ?? "");
+    setCourse(profile.course ?? "");
+    setSchedule(profile.schedule ?? "normal");
+    setNoise(profile.noise ?? "neutral");
+    setCleanliness(profile.cleanliness ?? "average");
+    setStudySocial(profile.studySocial ?? "balanced");
+    setSmoking(profile.smoking ?? "no");
+    setOkayWithSmoking(profile.okayWithSmoking ?? "no");
+    setPets(profile.pets ?? "no");
+    setOkayWithPets(profile.okayWithPets ?? "yes");
+    setInterests(profile.interests ?? []);
+    setTraits(profile.traits ?? []);
+    setBio(profile.bio ?? "");
+  }, [
+    profile.displayName, profile.course, profile.schedule, profile.noise,
+    profile.cleanliness, profile.studySocial, profile.smoking, profile.okayWithSmoking,
+    profile.pets, profile.okayWithPets, profile.interests, profile.traits, profile.bio
+  ]);
 
   function toggleTrait(t) {
     setTraits((prev) => {
@@ -95,8 +117,7 @@ export default function ProfileAboutYou() {
       return;
     }
 
-    // UI only — just show what would be submitted later:
-    console.log({
+    setAbout({
       displayName,
       course,
       schedule,
@@ -111,8 +132,6 @@ export default function ProfileAboutYou() {
       traits,
       bio,
     });
-
-    alert("UI only: profile saved (check console).");
     nav("/landing");
   }
 

@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useProfile } from "../context/ProfileContext.jsx";
 import ProgressHeader from "../components/ProgressHeader.jsx";
 import PillSelect from "../components/PillSelect.jsx";
 import TagPicker from "../components/TagPicker.jsx";
@@ -40,15 +41,27 @@ const AMENITIES = [
 
 export default function ProfileHousingRequirements() {
   const nav = useNavigate();
+  const { profile, setHousing } = useProfile();
 
-  const [budgetMin, setBudgetMin] = useState(400);
-  const [budgetMax, setBudgetMax] = useState(900);
-  const [moveIn, setMoveIn] = useState("flexible");
-  const [roomType, setRoomType] = useState("any");
-  const [area, setArea] = useState("either");
-  const [leaseMonths, setLeaseMonths] = useState(9);
-  const [amenities, setAmenities] = useState([]);
-  const [notes, setNotes] = useState("");
+  const [budgetMin, setBudgetMin] = useState(profile.budgetMin ?? 400);
+  const [budgetMax, setBudgetMax] = useState(profile.budgetMax ?? 900);
+  const [moveIn, setMoveIn] = useState(profile.moveIn ?? "flexible");
+  const [roomType, setRoomType] = useState(profile.roomType ?? "any");
+  const [area, setArea] = useState(profile.area ?? "either");
+  const [leaseMonths, setLeaseMonths] = useState(profile.leaseMonths ?? 9);
+  const [amenities, setAmenities] = useState(profile.amenities ?? []);
+  const [notes, setNotes] = useState(profile.notes ?? "");
+
+  useEffect(() => {
+    setBudgetMin(profile.budgetMin ?? 400);
+    setBudgetMax(profile.budgetMax ?? 900);
+    setMoveIn(profile.moveIn ?? "flexible");
+    setRoomType(profile.roomType ?? "any");
+    setArea(profile.area ?? "either");
+    setLeaseMonths(profile.leaseMonths ?? 9);
+    setAmenities(profile.amenities ?? []);
+    setNotes(profile.notes ?? "");
+  }, [profile.budgetMin, profile.budgetMax, profile.moveIn, profile.roomType, profile.area, profile.leaseMonths, profile.amenities, profile.notes]);
 
   function onNext(e) {
     e.preventDefault();
@@ -57,6 +70,16 @@ export default function ProfileHousingRequirements() {
       alert("Your minimum budget can’t be higher than your maximum budget.");
       return;
     }
+    setHousing({
+      budgetMin,
+      budgetMax,
+      moveIn,
+      roomType,
+      area,
+      leaseMonths,
+      amenities,
+      notes,
+    });
     nav("/profile/about-you");
   }
 
