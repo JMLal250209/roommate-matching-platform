@@ -9,6 +9,7 @@ import ProfileAboutYou from "./pages/ProfileAboutYou.jsx";
 import ProfileView from "./pages/ProfileView.jsx";
 import LandingPage from "./LandingPage.jsx";
 import PropertyDetails from "./pages/details.jsx";
+import GreenPage from "./pages/Green.jsx";
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
       <Route path="/profile/view" element={<ProfileView />} />
       <Route path="/landing" element={<LandingPage />} />
       <Route path="/house1/details" element={<PropertyDetails />} />
+      <Route path="/green" element={<GreenPage />} />
     </Routes>
   );
 }

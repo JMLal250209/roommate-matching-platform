@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function PropertyDetails() {
@@ -7,6 +7,13 @@ export default function PropertyDetails() {
   const house = state?.house;
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
+
+  const [isInterested, setIsInterested] = useState(() => {
+    const saved = localStorage.getItem('house_interests');
+    if (!saved || !house?.id) return false;
+    const interests = JSON.parse(saved);
+    return Boolean(interests[house.id]);
+  });
 
   // Placeholder data - would come from props or API in production
   // Backend schema: propertyId, createdAt, title, description, address, city, 
@@ -74,6 +81,20 @@ export default function PropertyDetails() {
   const matchedRoommates = property.roommates.profiles.filter(
     (r) => r.matchAnimal === currentUser.matchAnimal
   );
+
+  // Use the landing page image as the first image if available
+  const displayImages = house?.image
+    ? [house.image, ...property.images.filter(img => img !== house.image)]
+    : property.images;
+
+  const handleToggleInterest = () => {
+    if (!house?.id) return;
+    const saved = localStorage.getItem('house_interests');
+    const interests = saved ? JSON.parse(saved) : {};
+    interests[house.id] = !isInterested;
+    localStorage.setItem('house_interests', JSON.stringify(interests));
+    setIsInterested(!isInterested);
+  };
 
   return (
     <div style={{
@@ -190,7 +211,7 @@ export default function PropertyDetails() {
               cursor: 'pointer'
             }}>
               <img 
-                src={property.images[0]} 
+                src={displayImages[0]} 
                 alt="Main view"
                 style={{
                   width: '100%',
@@ -202,7 +223,7 @@ export default function PropertyDetails() {
                 onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
               />
             </div>
-            {property.images.slice(1, 5).map((img, idx) => (
+            {displayImages.slice(1, 5).map((img, idx) => (
               <div key={idx} style={{
                 position: 'relative',
                 overflow: 'hidden',
@@ -232,7 +253,7 @@ export default function PropertyDetails() {
                     fontSize: '16px',
                     fontWeight: '600'
                   }}>
-                    +{property.images.length - 5} more
+                    +{displayImages.length - 5} more
                   </div>
                 )}
               </div>
@@ -706,28 +727,30 @@ export default function PropertyDetails() {
               </div>
             </div>
 
-            <button style={{
+            <button
+              onClick={handleToggleInterest}
+              style={{
               width: '100%',
-              background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-              color: 'white',
-              border: 'none',
+              background: isInterested ? '#dcfce7' : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+              color: isInterested ? '#065f46' : 'white',
+              border: isInterested ? '2px solid #059669' : 'none',
               padding: '18px',
               borderRadius: '12px',
               fontSize: '17px',
               fontWeight: '700',
               cursor: 'pointer',
               transition: 'all 0.3s ease',
-              boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)'
+              boxShadow: isInterested ? '0 4px 12px rgba(5, 150, 105, 0.2)' : '0 4px 12px rgba(5, 150, 105, 0.3)'
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 8px 20px rgba(5, 150, 105, 0.4)';
+              e.currentTarget.style.boxShadow = isInterested ? '0 8px 20px rgba(5, 150, 105, 0.3)' : '0 8px 20px rgba(5, 150, 105, 0.4)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(5, 150, 105, 0.3)';
+              e.currentTarget.style.boxShadow = isInterested ? '0 4px 12px rgba(5, 150, 105, 0.2)' : '0 4px 12px rgba(5, 150, 105, 0.3)';
             }}>
-              Register Interest
+              {isInterested ? 'Interest Registered ✓' : 'Register Interest'}
             </button>
           </div>
 
