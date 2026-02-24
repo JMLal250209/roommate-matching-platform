@@ -4,6 +4,7 @@ import { useProfile } from "../context/ProfileContext.jsx";
 import ProgressHeader from "../components/ProgressHeader.jsx";
 import PillSelect from "../components/PillSelect.jsx";
 import TagPicker from "../components/TagPicker.jsx";
+import AnimalRevealModal from "../components/AnimalRevealModal.jsx";
 
 const SCHEDULE = [
   { value: "early", label: "Early riser" },
@@ -80,6 +81,7 @@ export default function ProfileAboutYou() {
   const [interests, setInterests] = useState(profile.interests ?? []);
   const [traits, setTraits] = useState(profile.traits ?? []);
   const [bio, setBio] = useState(profile.bio ?? "");
+  const [showAnimalModal, setShowAnimalModal] = useState(false);
 
   useEffect(() => {
     setDisplayName(profile.displayName ?? "");
@@ -132,7 +134,7 @@ export default function ProfileAboutYou() {
       traits,
       bio,
     });
-    nav("/landing");
+    setShowAnimalModal(true);
   }
 
   return (
@@ -260,6 +262,13 @@ export default function ProfileAboutYou() {
           </div>
         </form>
       </div>
+
+      {showAnimalModal && (
+        <AnimalRevealModal
+          profile={{ schedule, noise, cleanliness, studySocial }}
+          onClose={() => nav("/landing")}
+        />
+      )}
     </div>
   );
 }
