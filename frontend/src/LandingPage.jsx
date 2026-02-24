@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext.jsx";
+import { API_BASE_URL } from "./lib/api";
 import {
   getUserPropertyInterests,
   listProperties,
@@ -8,8 +9,7 @@ import {
 } from "./lib/propertiesApi";
 
 const PER_PAGE = 6;
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1560185007-5f0bb1866cab?auto=format&fit=crop&w=1200&q=80";
+const FALLBACK_IMAGE = `${API_BASE_URL}/api/images/house_1.jpeg`;
 
 function toCurrency(value) {
   const amount = Number(value);
@@ -22,11 +22,28 @@ function toCurrency(value) {
 }
 
 function getImageUrl(property) {
-  const firstImage = Array.isArray(property?.image_urls) ? property.image_urls[0] : "";
-  if (typeof firstImage === "string" && /^https?:\/\//.test(firstImage)) {
+  const imageCandidates = [];
+
+  if (Array.isArray(property?.image_urls)) {
+    imageCandidates.push(...property.image_urls);
+  }
+  if (typeof property?.image === "string") {
+    imageCandidates.push(property.image);
+  }
+
+  const firstImage = imageCandidates.find((image) => typeof image === "string" && image.trim());
+  if (!firstImage) return FALLBACK_IMAGE;
+
+  if (/^https?:\/\//.test(firstImage)) {
     return firstImage;
   }
-  return FALLBACK_IMAGE;
+
+  const filename = firstImage.split("/").pop();
+  if (!filename) {
+    return FALLBACK_IMAGE;
+  }
+
+  return `${API_BASE_URL}/api/images/${encodeURIComponent(filename)}`;
 }
 
 export default function LandingPage() {

@@ -1,7 +1,31 @@
 from flask import Blueprint, jsonify, request
+from urllib.parse import quote
 from db import get_properties_table, create_property
 
 properties_bp = Blueprint("properties", __name__)
+
+def _resolve_property_images(property_data):
+    images = property_data.get("image_urls")
+    if not isinstance(images, list):
+        images = []
+
+    # Backward compatibility with older records that store a single "image" field.
+    if not images and isinstance(property_data.get("image"), str):
+        images = [property_data["image"]]
+
+    resolved = []
+    for image in images:
+        if not isinstance(image, str) or not image.strip():
+            continue
+        if image.startswith("http://") or image.startswith("https://"):
+            resolved.append(image)
+            continue
+
+        filename = image.split("/")[-1]
+        resolved.append(f"{request.host_url.rstrip('/')}/api/images/{quote(filename)}")
+
+    property_data["image_urls"] = resolved
+    return property_data
 
 
 @properties_bp.route('/api/properties', methods=['GET'])
@@ -9,7 +33,8 @@ def get_properties():
     try:
         table = get_properties_table()
         response = table.scan()
-        properties = response.get("Items", [])
+        raw_properties = response.get("Items", [])
+        properties = [_resolve_property_images(p) for p in raw_properties]
         return jsonify({
             "success": True,
             "data": properties,
@@ -26,7 +51,7 @@ def get_property(property_id):
         response = table.get_item(Key={"propertyId": property_id})
         property_data = response.get("Item")
         if property_data:
-            return jsonify({"success": True, "data": property_data}), 200
+            return jsonify({"success": True, "data": _resolve_property_images(property_data)}), 200
         else:
             return jsonify({"success": False, "error": "Property not found"}), 404
     except Exception as e:
@@ -56,7 +81,7 @@ def add_property():
         return jsonify({
             "success": True,
             "message": "Property created successfully",
-            "data": property_data
+            "data": _resolve_property_images(property_data)
         }), 201
 
     except Exception as e:
