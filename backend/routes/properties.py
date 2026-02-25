@@ -10,10 +10,39 @@ def get_properties():
         table = get_properties_table()
         response = table.scan()
         properties = response.get("Items", [])
+
+        user = getattr(request, "user", None)
+
+        if not user:
+            return jsonify({"success": False, "error": "User not authenticated"}), 401
+        
+        profile = user.get("profile", {})
+
+        max_budget = profile.get("max_budget")
+        preferred_city = profile.get("city")
+        pets_required = profile.get("petsOk")
+
+        filtered = []
+
+        for prop in properties:
+            if prop.get("status") != "available":
+                continue
+
+            if max_budget and prop.get("rent_per_month", 0) > max_budget:
+                continue
+
+            if preferred_city and prop.get("city") != preferred_city:
+                continue
+
+            if pets_required and not prop.get("pets_allowed"):
+                continue
+
+            filtered.append(prop)
+
         return jsonify({
             "success": True,
-            "data": properties,
-            "count": len(properties)
+            "data": filtered,
+            "count": len(filtered)
         }), 200
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
