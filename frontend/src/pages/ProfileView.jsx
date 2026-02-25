@@ -5,7 +5,7 @@ import {
   mapBackendProfileToProfileView,
   mapProfileViewToBackendProfile,
 } from "../lib/profileMapping";
-import { getUser, updateUser } from "../lib/usersApi";
+import { getUser, getUserAnimal, updateUser } from "../lib/usersApi";
 import "./ProfileView.css";
 
 const STEPS = ["Basic", "Housing", "About You"];
@@ -25,6 +25,7 @@ export default function ProfileView() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [saving, setSaving] = useState(false);
   const [backendProfile, setBackendProfile] = useState({});
+  const [animalInfo, setAnimalInfo] = useState(null);
 
   useEffect(() => {
     if (!message) return;
@@ -45,6 +46,7 @@ export default function ProfileView() {
 
     async function loadProfile() {
       if (!user?.userId) {
+        setAnimalInfo(null);
         setLoadingProfile(false);
         return;
       }
@@ -53,7 +55,10 @@ export default function ProfileView() {
       setLoadError("");
 
       try {
-        const freshUser = await getUser(user.userId);
+        const [freshUser, freshAnimal] = await Promise.all([
+          getUser(user.userId),
+          getUserAnimal(user.userId).catch(() => null),
+        ]);
         if (!isMounted || !freshUser) return;
 
         const mapped = mapBackendProfileToProfileView(freshUser.profile || {});
@@ -61,6 +66,7 @@ export default function ProfileView() {
         setProfile(mapped);
         setDraft(mapped);
         setUser(freshUser);
+        setAnimalInfo(freshAnimal);
       } catch (err) {
         if (!isMounted) return;
         if (err?.code === "SESSION_EXPIRED") {
@@ -236,7 +242,7 @@ export default function ProfileView() {
               fallbackLetter={fallbackLetter}
               fallbackLetter={fallbackLetter}
             />
-            {step === 0 && <QuickInfoView profile={profile} />}
+            {step === 0 && <QuickInfoView profile={profile} animalInfo={animalInfo} />}
             {step === 1 && <HousingView profile={profile} />}
             {step === 2 && <AboutView profile={profile} />}
           </div>
@@ -347,13 +353,27 @@ function PhotoEdit({ accent, displayedPhoto, fallbackLetter, draft, setDraft, on
   );
 }
 
-function QuickInfoView({ profile }) {
+function formatAnimalLabel(value) {
+  if (!value) return "—";
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function QuickInfoView({ profile, animalInfo }) {
+  const compatibleAnimals = Array.isArray(animalInfo?.compatible_animals)
+    ? animalInfo.compatible_animals.map(formatAnimalLabel).join(", ")
+    : "";
+
   return (
     <div className="panel">
       <h2 className="h2">Course, quick info & bio</h2>
       <div className="kv">
         <div><strong>Display name:</strong> {profile.displayName || "—"}</div>
         <div><strong>Course / year:</strong> {profile.course || "—"}</div>
+        <div><strong>Animal archetype:</strong> {formatAnimalLabel(animalInfo?.animal)}</div>
+        <div><strong>Best matches:</strong> {compatibleAnimals || "—"}</div>
         <div><strong>Quick descriptors:</strong> {Array.isArray(profile.traits) && profile.traits.length > 0 ? profile.traits.join(", ") : "None"}</div>
         <div><strong>Bio:</strong> {profile.bio || "—"}</div>
       </div>

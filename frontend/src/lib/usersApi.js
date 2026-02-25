@@ -14,3 +14,12 @@ export async function updateUser(userId, body) {
   });
   return payload?.data || null;
 }
+
+export async function getUserAnimal(userId) {
+  const payload = await request(
+    "GET",
+    `/api/users/${encodeURIComponent(userId)}/animal`,
+    { auth: true }
+  );
+  return payload?.data || null;
+}
