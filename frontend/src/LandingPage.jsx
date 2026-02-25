@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext.jsx";
 import { API_BASE_URL } from "./lib/api";
 import {
+  getUserMatchForProperty,
   getUserPropertyInterests,
   listProperties,
   registerPropertyInterest,
@@ -46,6 +47,24 @@ function getImageUrl(property) {
   return `${API_BASE_URL}/api/images/${encodeURIComponent(filename)}`;
 }
 
+function getMatchSummary(matchInfo) {
+  if (!matchInfo) return "";
+
+  if (matchInfo.interestStatus === "matched") {
+    return "Matched group formed for this property.";
+  }
+
+  const totalInterested = Number(matchInfo.totalInterested) || 0;
+  const requiredRoommates = Number(matchInfo.requiredRoommates) || 0;
+  if (totalInterested < requiredRoommates) {
+    return `Waiting for more students (${totalInterested}/${requiredRoommates} interested).`;
+  }
+
+  const otherInterested = Math.max(totalInterested - 1, 0);
+  const compatibleCount = Number(matchInfo.compatibleCount) || 0;
+  return `${compatibleCount} compatible out of ${otherInterested} other interested students.`;
+}
+
 export default function LandingPage() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -56,6 +75,7 @@ export default function LandingPage() {
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
   const [interests, setInterests] = useState({});
+  const [matchByProperty, setMatchByProperty] = useState({});
   const [submitting, setSubmitting] = useState({});
 
   useEffect(() => {
@@ -82,6 +102,34 @@ export default function LandingPage() {
           }
         }
         setInterests(interestedMap);
+
+        const interestedPropertyIds = (interestRows || [])
+          .map((row) => row?.propertyId)
+          .filter(Boolean);
+
+        let nextMatches = {};
+        if (user?.userId && interestedPropertyIds.length > 0) {
+          const matchEntries = await Promise.all(
+            interestedPropertyIds.map(async (propertyId) => {
+              try {
+                const matchData = await getUserMatchForProperty(user.userId, propertyId);
+                return [propertyId, matchData];
+              } catch (err) {
+                if (err?.code === "SESSION_EXPIRED") {
+                  throw err;
+                }
+                return [propertyId, null];
+              }
+            })
+          );
+
+          nextMatches = Object.fromEntries(
+            matchEntries.filter(([, data]) => Boolean(data))
+          );
+        }
+
+        if (!isMounted) return;
+        setMatchByProperty(nextMatches);
       } catch (err) {
         if (!isMounted) return;
 
@@ -122,6 +170,20 @@ export default function LandingPage() {
     try {
       await registerPropertyInterest(property.propertyId, `${toCurrency(property.rent_per_month)}/month`);
       setInterests((prev) => ({ ...prev, [property.propertyId]: true }));
+
+      if (user?.userId) {
+        try {
+          const matchData = await getUserMatchForProperty(user.userId, property.propertyId);
+          if (matchData) {
+            setMatchByProperty((prev) => ({ ...prev, [property.propertyId]: matchData }));
+          }
+        } catch (matchErr) {
+          if (matchErr?.code === "SESSION_EXPIRED") {
+            signOut("Session expired. Please sign in again.");
+            return;
+          }
+        }
+      }
     } catch (err) {
       if (err?.code === "SESSION_EXPIRED") {
         signOut("Session expired. Please sign in again.");
@@ -208,6 +270,7 @@ export default function LandingPage() {
             const propertyId = property.propertyId;
             const interested = Boolean(interests[propertyId]);
             const isSubmitting = Boolean(submitting[propertyId]);
+            const matchSummary = getMatchSummary(matchByProperty[propertyId]);
 
             return (
               <article
@@ -248,6 +311,10 @@ export default function LandingPage() {
                         ? "Registering..."
                         : "Register Interest"}
                   </button>
+
+                  {interested && matchSummary ? (
+                    <p className="text-xs text-slate-600">{matchSummary}</p>
+                  ) : null}
                 </div>
               </article>
             );

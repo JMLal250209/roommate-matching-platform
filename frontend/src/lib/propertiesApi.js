@@ -26,3 +26,12 @@ export async function getUserPropertyInterests(userId) {
   );
   return payload?.data?.interests || [];
 }
+
+export async function getUserMatchForProperty(userId, propertyId) {
+  const payload = await request(
+    "GET",
+    `/api/match/user/${encodeURIComponent(userId)}/property/${encodeURIComponent(propertyId)}`,
+    { auth: true }
+  );
+  return payload?.data || null;
+}
