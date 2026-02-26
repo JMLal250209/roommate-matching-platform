@@ -28,22 +28,6 @@ def _resolve_property_images(property_data):
     return property_data
 
 
-@properties_bp.route('/api/properties', methods=['GET'])
-def get_properties():
-    try:
-        table = get_properties_table()
-        response = table.scan()
-        raw_properties = response.get("Items", [])
-        properties = [_resolve_property_images(p) for p in raw_properties]
-        return jsonify({
-            "success": True,
-            "data": properties,
-            "count": len(properties)
-        }), 200
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
 @properties_bp.route('/api/properties/<string:property_id>', methods=['GET'])
 def get_property(property_id):
     table = get_properties_table()
@@ -57,6 +41,57 @@ def get_property(property_id):
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@properties_bp.route('/api/properties', methods=['GET'])
+def get_properties():
+    try:
+        table = get_properties_table()
+        response = table.scan()
+        properties = response.get("Items", [])
+        user = getattr(request, "user", None)
+        if not user:
+            return jsonify({"success": False, "error": "User not authenticated"}), 401
+        
+        profile = user.get("profile", {})
+
+        # --- FIX: read budgetMax correctly from DynamoDB typed JSON ---
+        budget_max_raw = profile.get("budgetMax")
+        if isinstance(budget_max_raw, dict):
+            # DynamoDB raw format: {"N": "900"}
+            max_budget = float(budget_max_raw.get("N", 0))
+        elif budget_max_raw is not None:
+            # Already deserialized (boto3 resource, not client)
+            max_budget = float(budget_max_raw)
+        else:
+            max_budget = None
+
+        preferred_city = profile.get("city")
+        pets_required = profile.get("petsOk")
+        if isinstance(pets_required, dict):
+            pets_required = pets_required.get("BOOL", False)
+
+        filtered = []
+        for prop in properties:
+            if prop.get("status") != "available":
+                continue
+
+            # --- FIX: compare budget correctly ---
+            rent = prop.get("rent_per_month", 0)
+            if max_budget is not None and float(rent) > max_budget:
+                continue
+
+            if preferred_city and prop.get("city") != preferred_city:
+                continue
+            if pets_required and not prop.get("pets_allowed"):
+                continue
+            filtered.append(prop)
+
+        return jsonify({
+            "success": True,
+            "data": filtered,
+            "count": len(filtered)
+        }), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @properties_bp.route('/api/properties', methods=['POST'])
 def add_property():
