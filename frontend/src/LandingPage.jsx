@@ -301,6 +301,18 @@ export default function LandingPage() {
 
                   <button
                     type="button"
+                    onClick={() =>
+                      navigate(`/properties/${encodeURIComponent(propertyId)}`, {
+                        state: { house: property },
+                      })
+                    }
+                    className="w-full rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    View Details
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => handleRegisterInterest(property)}
                     disabled={interested || isSubmitting}
                     className="mt-1 w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"

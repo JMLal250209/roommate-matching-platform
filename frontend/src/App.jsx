@@ -7,6 +7,7 @@ import CreateProfile from "./pages/CreateProfile.jsx";
 import ProfileHousingRequirements from "./pages/ProfileHousingRequirements.jsx";
 import ProfileAboutYou from "./pages/ProfileAboutYou.jsx";
 import ProfileView from "./pages/ProfileView.jsx";
+import PropertyDetails from "./pages/details.jsx";
 import LandingPage from "./LandingPage.jsx";
 import RequireAuth from "./components/RequireAuth.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
@@ -59,6 +60,14 @@ export default function App() {
         element={
           <RequireAuth>
             <LandingPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/properties/:propertyId"
+        element={
+          <RequireAuth>
+            <PropertyDetails />
           </RequireAuth>
         }
       />

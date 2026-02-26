@@ -5,6 +5,13 @@ export async function listProperties() {
   return payload?.data || [];
 }
 
+export async function getProperty(propertyId) {
+  const payload = await request("GET", `/api/properties/${encodeURIComponent(propertyId)}`, {
+    auth: true,
+  });
+  return payload?.data || null;
+}
+
 export async function registerPropertyInterest(propertyId, budget) {
   const payload = await request(
     "POST",
