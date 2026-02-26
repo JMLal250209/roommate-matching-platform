@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import ProgressHeader from "../components/ProgressHeader.jsx";
 import PillSelect from "../components/PillSelect.jsx";
 import TagPicker from "../components/TagPicker.jsx";
+import AnimalRevealModal from "../components/AnimalRevealModal.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useProfileDraft } from "../context/ProfileDraftContext.jsx";
 import { mapFormToProfilePayload } from "../lib/profileMapping";
@@ -97,6 +98,9 @@ export default function ProfileAboutYou() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [saveError, setSaveError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showAnimalModal, setShowAnimalModal] = useState(false);
+  const [animalProfile, setAnimalProfile] = useState(null);
+  const [savedUser, setSavedUser] = useState(null);
   const shouldHydrateFromBackend = useRef(isDraftNearDefault(draft));
 
   const about = useMemo(() => draft.about, [draft.about]);
@@ -192,8 +196,14 @@ export default function ProfileAboutYou() {
         setUser(updated);
       }
 
+      setAnimalProfile({
+        schedule: about.schedule,
+        cleanliness: about.cleanliness,
+        studySocial: about.studySocial,
+      });
+      setSavedUser(latestUser);
       resetDraft();
-      nav("/landing", { replace: true, state: { fromProfileSave: true, user: latestUser } });
+      setShowAnimalModal(true);
     } catch (err) {
       if (err?.code === "SESSION_EXPIRED") {
         signOut("Session expired. Please sign in again.");
@@ -390,6 +400,18 @@ export default function ProfileAboutYou() {
           </div>
         </form>
       </div>
+      {showAnimalModal ? (
+        <AnimalRevealModal
+          profile={animalProfile || {}}
+          onClose={() => {
+            setShowAnimalModal(false);
+            nav("/landing", {
+              replace: true,
+              state: { fromProfileSave: true, user: savedUser || user },
+            });
+          }}
+        />
+      ) : null}
     </div>
   );
 }

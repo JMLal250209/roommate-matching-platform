@@ -167,7 +167,7 @@ export default function ProfileView() {
         ]);
         if (!isMounted || !freshUser) return;
 
-        const mapped = mapBackendProfileToProfileView(freshUser.profile || {});
+        const mapped = mapBackendProfileToProfileView(freshUser.profile || {}, freshUser.name);
         setBackendProfile(freshUser.profile || {});
         setProfile(mapped);
         setDraft(mapped);
@@ -256,6 +256,17 @@ export default function ProfileView() {
     setSaving(true);
 
     try {
+      let latestUser = user;
+
+      const nextDisplayName = (draft.displayName || "").trim();
+      if (nextDisplayName && nextDisplayName !== user.name) {
+        const renamed = await updateUser(user.userId, { name: nextDisplayName });
+        if (renamed) {
+          latestUser = renamed;
+          setUser(renamed);
+        }
+      }
+
       const profilePatch = omitUndefinedFields({
         ...backendProfile,
         ...mapProfileViewToBackendProfile(draft),
@@ -263,11 +274,16 @@ export default function ProfileView() {
 
       const updatedUser = await updateUser(user.userId, { profile: profilePatch });
       if (updatedUser) {
+        latestUser = updatedUser;
         setUser(updatedUser);
       }
 
-      const mapped = mapBackendProfileToProfileView(updatedUser?.profile || profilePatch);
-      setBackendProfile(updatedUser?.profile || profilePatch);
+      const persistedProfile = updatedUser?.profile || profilePatch;
+      const mapped = mapBackendProfileToProfileView(
+        persistedProfile,
+        latestUser?.name || nextDisplayName || user.name
+      );
+      setBackendProfile(persistedProfile);
       setProfile(mapped);
       setDraft(mapped);
       setIsEditing(false);

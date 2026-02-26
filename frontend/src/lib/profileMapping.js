@@ -80,23 +80,6 @@ function boolToYesNo(value, truthy = "yes", falsy = "no") {
   return value ? truthy : falsy;
 }
 
-function parseBudgetString(value) {
-  const matches = String(value || "").match(/\d+/g);
-  if (!matches || matches.length === 0) {
-    return { budgetMin: undefined, budgetMax: undefined };
-  }
-
-  if (matches.length === 1) {
-    const parsed = Number(matches[0]);
-    return { budgetMin: parsed, budgetMax: parsed };
-  }
-
-  return {
-    budgetMin: Number(matches[0]),
-    budgetMax: Number(matches[1]),
-  };
-}
-
 function inferScheduleFromWakeTime(wakeTime) {
   if (!wakeTime || typeof wakeTime !== "string") {
     return DEFAULT_ABOUT.schedule;
@@ -196,62 +179,76 @@ export function mapBackendProfileToDraft(profile, userName = "") {
   };
 }
 
-export function mapBackendProfileToProfileView(profile) {
+export function mapBackendProfileToProfileView(profile, userName = "") {
   const source = profile || {};
-
-  const budgetMin = source.budgetMin;
-  const budgetMax = source.budgetMax;
-  const budget =
-    budgetMin !== undefined && budgetMax !== undefined
-      ? `EUR ${budgetMin}-${budgetMax}/month`
-      : "EUR 900/month";
+  const budgetMin = Number(source.budgetMin);
+  const budgetMax = Number(source.budgetMax);
+  const cleanlinessValue =
+    BACKEND_TO_CLEANLINESS[String(source.cleanliness || "").toLowerCase()] ||
+    DEFAULT_ABOUT.cleanliness;
+  const socialValue =
+    BACKEND_TO_STUDY_SOCIAL[String(source.socialPreference || "").toLowerCase()] ||
+    DEFAULT_ABOUT.studySocial;
 
   return {
     photoUrl: source.photoUrl || "",
-    bio: source.bio || "I enjoy fun but also do need to study.",
-    year: source.year || "2",
+    displayName: userName || "",
+    bio: source.bio || source.routine || "",
+    year: source.year || "",
     course: source.course || "",
-    budget,
-    location: source.area || "City centre / suburbs",
-    moveInDate: source.moveInDate || "",
-    leaseLength: source.leaseMonths ? `${source.leaseMonths} months` : "6-12 months",
-    smokersOk: Boolean(source.smokersOk),
-    petsOk: source.petsOk === undefined ? true : Boolean(source.petsOk),
-    quietHours: source.quietHours || "23:00 - 07:00",
-    socialPreference: source.socialPreference || "Medium",
-    routine: source.routine || "",
-    cleanliness: source.cleanliness || "Medium",
-    cooking: source.cooking || "Sometimes",
-    bedtime: source.bedtime || "23:30",
-    wakeTime: source.wakeTime || "07:30",
+    budgetMin: Number.isFinite(budgetMin) ? budgetMin : DEFAULT_HOUSING.budgetMin,
+    budgetMax: Number.isFinite(budgetMax) ? budgetMax : DEFAULT_HOUSING.budgetMax,
+    moveIn: source.moveIn || DEFAULT_HOUSING.moveIn,
+    roomType: source.roomType || DEFAULT_HOUSING.roomType,
+    area: source.area || DEFAULT_HOUSING.area,
+    leaseMonths: Number(source.leaseMonths) || DEFAULT_HOUSING.leaseMonths,
+    amenities: normalizeArray(source.amenities),
     notes: source.housingNotes || source.notes || "",
+    schedule: inferScheduleFromWakeTime(source.wakeTime),
+    noise: BACKEND_TO_NOISE[source.noise_level] || DEFAULT_ABOUT.noise,
+    cleanliness: cleanlinessValue,
+    studySocial: socialValue,
+    smoking: boolToYesNo(Boolean(source.smoker)),
+    okayWithSmoking: boolToYesNo(Boolean(source.smokersOk)),
+    pets: boolToYesNo(Boolean(source.hasPets)),
+    okayWithPets:
+      source.petsOk === undefined
+        ? DEFAULT_ABOUT.okayWithPets
+        : boolToYesNo(Boolean(source.petsOk)),
+    interests: normalizeArray(source.interests),
+    traits: normalizeArray(source.traits),
   };
 }
 
 export function mapProfileViewToBackendProfile(viewProfile) {
-  const budget = parseBudgetString(viewProfile?.budget);
-  const leaseMonthsMatch = String(viewProfile?.leaseLength || "").match(/\d+/);
+  const source = viewProfile || {};
+  const times = SCHEDULE_TO_TIMES[source.schedule] || SCHEDULE_TO_TIMES.normal;
 
   return {
-    photoUrl: viewProfile?.photoUrl || "",
-    bio: viewProfile?.bio || "",
-    course: viewProfile?.course || "",
-    year: viewProfile?.year || "",
-    budgetMin: budget.budgetMin,
-    budgetMax: budget.budgetMax,
-    area: viewProfile?.location || "",
-    moveInDate: viewProfile?.moveInDate || "",
-    leaseMonths: leaseMonthsMatch ? Number(leaseMonthsMatch[0]) : undefined,
-    smokersOk: Boolean(viewProfile?.smokersOk),
-    petsOk: Boolean(viewProfile?.petsOk),
-    quietHours: viewProfile?.quietHours || "",
-    socialPreference: viewProfile?.socialPreference || "Medium",
-    routine: viewProfile?.routine || "",
-    cleanliness: viewProfile?.cleanliness || "Medium",
-    cooking: viewProfile?.cooking || "Sometimes",
-    bedtime: viewProfile?.bedtime || "23:30",
-    wakeTime: viewProfile?.wakeTime || "07:30",
-    housingNotes: viewProfile?.notes || "",
-    notes: viewProfile?.notes || "",
+    photoUrl: source.photoUrl || "",
+    bio: source.bio || "",
+    routine: source.bio || "",
+    course: source.course || "",
+    year: source.year || "",
+    wakeTime: times.wakeTime,
+    bedtime: times.bedtime,
+    socialPreference: STUDY_SOCIAL_TO_BACKEND[source.studySocial] || "Medium",
+    cleanliness: CLEANLINESS_TO_BACKEND[source.cleanliness] || "Medium",
+    smoker: toBoolYesNo(source.smoking),
+    smokersOk: toBoolYesNo(source.okayWithSmoking),
+    hasPets: toBoolYesNo(source.pets),
+    petsOk: toBoolYesNo(source.okayWithPets),
+    noise_level: NOISE_TO_BACKEND[source.noise] || "moderate",
+    interests: normalizeArray(source.interests),
+    traits: normalizeArray(source.traits),
+    cooking: normalizeArray(source.interests).includes("Cooking") ? "Sometimes" : "Never",
+    budgetMin: Number(source.budgetMin) || DEFAULT_HOUSING.budgetMin,
+    budgetMax: Number(source.budgetMax) || DEFAULT_HOUSING.budgetMax,
+    moveIn: source.moveIn || DEFAULT_HOUSING.moveIn,
+    roomType: source.roomType || DEFAULT_HOUSING.roomType,
+    area: source.area || DEFAULT_HOUSING.area,
+    leaseMonths: Number(source.leaseMonths) || DEFAULT_HOUSING.leaseMonths,
+    amenities: normalizeArray(source.amenities),
+    housingNotes: source.notes || "",
   };
 }
