@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useProfile } from "../context/ProfileContext.jsx";
 import ProgressHeader from "../components/ProgressHeader.jsx";
 import PillSelect from "../components/PillSelect.jsx";
 import TagPicker from "../components/TagPicker.jsx";
@@ -391,13 +390,6 @@ export default function ProfileAboutYou() {
           </div>
         </form>
       </div>
-
-      {showAnimalModal && (
-        <AnimalRevealModal
-          profile={{ schedule, noise, cleanliness, studySocial }}
-          onClose={() => nav("/landing")}
-        />
-      )}
     </div>
   );
 }
