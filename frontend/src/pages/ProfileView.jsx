@@ -6,10 +6,116 @@ import {
   mapProfileViewToBackendProfile,
 } from "../lib/profileMapping";
 import { getUser, getUserAnimal, updateUser } from "../lib/usersApi";
+import PillSelect from "../components/PillSelect.jsx";
+import TagPicker from "../components/TagPicker.jsx";
 import "./ProfileView.css";
 
 const STEPS = ["Basic", "Housing", "About You"];
 const DEFAULT_PROFILE = mapBackendProfileToProfileView({});
+
+const ROOM_TYPES = [
+  { value: "single", label: "Single room" },
+  { value: "shared", label: "Shared room" },
+  { value: "studio", label: "Studio" },
+  { value: "any", label: "Any" },
+];
+
+const AREA = [
+  { value: "city", label: "City centre" },
+  { value: "suburbs", label: "Suburbs" },
+  { value: "either", label: "Either" },
+];
+
+const MOVE_IN = [
+  { value: "asap", label: "ASAP" },
+  { value: "this_month", label: "This month" },
+  { value: "next_month", label: "Next month" },
+  { value: "flexible", label: "Flexible" },
+];
+
+const AMENITIES = [
+  "Garden / outdoor space",
+  "Ensuite bathroom",
+  "Bills included",
+  "Washing machine",
+  "Dishwasher",
+  "Bike storage",
+  "Parking",
+  "Near campus",
+  "Near public transport",
+  "Accessible / step-free",
+  "Quiet area",
+];
+
+const SCHEDULE = [
+  { value: "early", label: "Early riser" },
+  { value: "normal", label: "Normal" },
+  { value: "late", label: "Late schedule" },
+];
+
+const NOISE = [
+  { value: "quiet", label: "Quiet" },
+  { value: "neutral", label: "Neutral" },
+  { value: "lively", label: "Lively" },
+];
+
+const CLEAN = [
+  { value: "very_clean", label: "Very clean" },
+  { value: "average", label: "Average" },
+  { value: "casual", label: "Casual" },
+];
+
+const STUDY_SOCIAL = [
+  { value: "mostly_study", label: "Mostly study / chill at home" },
+  { value: "balanced", label: "Balanced" },
+  { value: "often_out", label: "Often out / social" },
+];
+
+const YES_NO = [
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
+  { value: "sometimes", label: "Sometimes" },
+];
+
+const INTERESTS = [
+  "Gym",
+  "Sports",
+  "Gaming",
+  "Music",
+  "Cooking",
+  "Reading",
+  "Nightlife",
+  "Coffee",
+  "Films",
+  "Hiking",
+  "Societies",
+  "Tech",
+  "Art",
+  "Travel",
+];
+
+const TRAITS = [
+  "Late schedule, quiet, tidy",
+  "Social, flexible schedule, medium tidy",
+  "Quiet, independent, tidy",
+  "Flexible, calm, low conflict",
+  "Social, group-oriented, energetic",
+  "Early riser, quiet, routine-based",
+  "Adaptable, medium social",
+  "Quiet, clean, low-noise",
+  "Friendly but respects space",
+  "Studious weekdays, social weekends",
+  "Likes shared meals sometimes",
+  "Good communicator",
+  "Guest-friendly (with notice)",
+  "Minimalist / clutter-free",
+  "Headphones for music",
+  "Neat kitchen person",
+];
+
+function labelFor(value, options) {
+  return options.find((option) => option.value === value)?.label || value || "—";
+}
 
 function omitUndefinedFields(obj) {
   return Object.fromEntries(Object.entries(obj).filter(([, value]) => value !== undefined));
@@ -240,7 +346,6 @@ export default function ProfileView() {
               accent={accent}
               displayedPhoto={displayedPhoto}
               fallbackLetter={fallbackLetter}
-              fallbackLetter={fallbackLetter}
             />
             {step === 0 && <QuickInfoView profile={profile} animalInfo={animalInfo} />}
             {step === 1 && <HousingView profile={profile} />}
@@ -251,7 +356,6 @@ export default function ProfileView() {
             <PhotoEdit
               accent={accent}
               displayedPhoto={photoPreview || draft.photoUrl}
-              fallbackLetter={fallbackLetter}
               fallbackLetter={fallbackLetter}
               draft={draft}
               setDraft={setDraft}

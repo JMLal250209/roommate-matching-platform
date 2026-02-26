@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { API_BASE_URL } from '../lib/api';
 import {
   getProperty,
   getUserMatchForProperty,
   registerPropertyInterest,
 } from '../lib/propertiesApi';
+
+const FALLBACK_IMAGE = `${API_BASE_URL}/api/images/house_1.jpeg`;
 
 const DEFAULT_PROPERTY = {
   propertyId: "prop_001",
@@ -96,6 +99,15 @@ function formatAnimalTag(animalArchetype) {
   return `${emoji} ${label}`;
 }
 
+function resolveImageUrl(image) {
+  if (typeof image !== "string" || !image.trim()) return "";
+  if (/^https?:\/\//.test(image)) return image;
+
+  const filename = image.split("/").pop();
+  if (!filename) return "";
+  return `${API_BASE_URL}/api/images/${encodeURIComponent(filename)}`;
+}
+
 function normalizeProperty(rawProperty, fallback = {}) {
   const source = rawProperty || {};
   const imageUrls = [];
@@ -110,8 +122,12 @@ function normalizeProperty(rawProperty, fallback = {}) {
     imageUrls.push(source.image.trim());
   }
 
-  const cleanImages = [...new Set(imageUrls.filter((image) => typeof image === "string" && image.trim()))];
-  const fallbackImages = Array.isArray(fallback.images) ? fallback.images : DEFAULT_PROPERTY.images;
+  const cleanImages = [...new Set(imageUrls.filter((image) => typeof image === "string" && image.trim()))]
+    .map(resolveImageUrl)
+    .filter(Boolean);
+  const fallbackImages = (Array.isArray(fallback.images) ? fallback.images : DEFAULT_PROPERTY.images)
+    .map(resolveImageUrl)
+    .filter(Boolean);
 
   return {
     ...DEFAULT_PROPERTY,
@@ -126,7 +142,7 @@ function normalizeProperty(rawProperty, fallback = {}) {
       : Array.isArray(fallback.amenities)
         ? fallback.amenities
         : DEFAULT_PROPERTY.amenities,
-    images: cleanImages.length > 0 ? cleanImages : fallbackImages,
+    images: cleanImages.length > 0 ? cleanImages : (fallbackImages.length > 0 ? fallbackImages : [FALLBACK_IMAGE]),
     rent_per_month: Number(source.rent_per_month ?? fallback.rent_per_month ?? DEFAULT_PROPERTY.rent_per_month),
     required_roommates: Number(
       source.required_roommates ?? fallback.required_roommates ?? DEFAULT_PROPERTY.required_roommates
@@ -148,7 +164,6 @@ export default function PropertyDetails() {
   const { propertyId } = useParams();
   const house = state?.house;
   const resolvedPropertyId = propertyId || house?.propertyId || house?.id || "";
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [property, setProperty] = useState(() => normalizeProperty(house || {}));
   const [matchData, setMatchData] = useState(null);
@@ -277,9 +292,7 @@ export default function PropertyDetails() {
   const baseImages = Array.isArray(property.images) && property.images.length > 0
     ? property.images
     : DEFAULT_PROPERTY.images;
-  const displayImages = house?.image
-    ? [house.image, ...baseImages.filter(img => img !== house.image)]
-    : baseImages;
+  const primaryImage = baseImages[0] || FALLBACK_IMAGE;
 
   const availableFromLabel = property.available_from
     ? new Date(property.available_from).toLocaleDateString('en-GB', {
@@ -464,69 +477,29 @@ export default function PropertyDetails() {
             Back to listings
           </button>
 
-          {/* Main Image Gallery */}
+          {/* Primary Property Image */}
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: '2fr 1fr 1fr',
-            gap: '12px',
             height: '520px',
             borderRadius: '16px',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            position: 'relative',
+            cursor: 'pointer',
           }}>
-            <div style={{
-              gridRow: 'span 2',
-              position: 'relative',
-              overflow: 'hidden',
-              cursor: 'pointer'
-            }}>
-              <img 
-                src={displayImages[0]} 
-                alt="Main view"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  transition: 'transform 0.4s ease'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              />
-            </div>
-            {displayImages.slice(1, 5).map((img, idx) => (
-              <div key={idx} style={{
-                position: 'relative',
-                overflow: 'hidden',
-                cursor: 'pointer'
-              }}>
-                <img 
-                  src={img} 
-                  alt={`View ${idx + 2}`}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    transition: 'transform 0.4s ease'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                />
-                {idx === 3 && (
-                  <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontSize: '16px',
-                    fontWeight: '600'
-                  }}>
-                    +{displayImages.length - 5} more
-                  </div>
-                )}
-              </div>
-            ))}
+            <img
+              src={primaryImage}
+              alt={`${property.title} primary`}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                transition: 'transform 0.4s ease',
+              }}
+              onError={(e) => {
+                e.currentTarget.src = FALLBACK_IMAGE;
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            />
           </div>
         </div>
       </div>
