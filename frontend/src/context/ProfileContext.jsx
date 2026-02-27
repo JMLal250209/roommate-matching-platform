@@ -25,6 +25,7 @@ const defaultProfile = {
   interests: [],
   traits: [],
   bio: "",
+  animalArchetype: "panda",
 
   // Optional (ProfileView)
   photoUrl: "",

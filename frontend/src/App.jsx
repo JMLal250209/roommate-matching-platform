@@ -10,6 +10,8 @@ import ProfileView from "./pages/ProfileView.jsx";
 import LandingPage from "./LandingPage.jsx";
 import PropertyDetails from "./pages/details.jsx";
 import GreenPage from "./pages/Green.jsx";
+import FellowAnimalProfiles from "./pages/FellowAnimalProfiles.jsx";
+import FellowAnimalProfileView from "./pages/FellowAnimalProfileView.jsx";
 
 export default function App() {
   return (
@@ -22,6 +24,8 @@ export default function App() {
       <Route path="/profile/about-you" element={<ProfileAboutYou />} />
       <Route path="/profile/view" element={<ProfileView />} />
       <Route path="/landing" element={<LandingPage />} />
+      <Route path="/landing/others" element={<FellowAnimalProfiles />} />
+      <Route path="/landing/others/:profileId" element={<FellowAnimalProfileView />} />
       <Route path="/house1/details" element={<PropertyDetails />} />
       <Route path="/green" element={<GreenPage />} />
     </Routes>

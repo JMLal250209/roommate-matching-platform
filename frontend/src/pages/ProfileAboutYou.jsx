@@ -5,6 +5,7 @@ import ProgressHeader from "../components/ProgressHeader.jsx";
 import PillSelect from "../components/PillSelect.jsx";
 import TagPicker from "../components/TagPicker.jsx";
 import AnimalRevealModal from "../components/AnimalRevealModal.jsx";
+import { assignAnimal } from "../utils/animalArchetypes.js";
 
 const SCHEDULE = [
   { value: "early", label: "Early riser" },
@@ -119,6 +120,8 @@ export default function ProfileAboutYou() {
       return;
     }
 
+    const animalArchetype = assignAnimal({ schedule, noise, cleanliness, studySocial });
+
     setAbout({
       displayName,
       course,
@@ -133,6 +136,7 @@ export default function ProfileAboutYou() {
       interests,
       traits,
       bio,
+      animalArchetype,
     });
     setShowAnimalModal(true);
   }
