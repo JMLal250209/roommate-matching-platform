@@ -1,69 +1,261 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext.jsx';
+import { API_BASE_URL } from '../lib/api';
+import {
+  getProperty,
+  getUserMatchForProperty,
+  registerPropertyInterest,
+} from '../lib/propertiesApi';
+
+const FALLBACK_IMAGE = `${API_BASE_URL}/api/images/house_1.jpeg`;
+
+const DEFAULT_PROPERTY = {
+  propertyId: "prop_001",
+  title: "Sunlit 4BR Near Campus",
+  address: "Trinity College Dublin, College Green, Dublin 2",
+  city: "Dublin",
+  rent_per_month: 1200,
+  required_roommates: 3,
+  bedrooms: 4,
+  bathrooms: 2,
+  description:
+    "Spacious 4-bedroom house just minutes from campus. Recently renovated with modern appliances, high-speed fiber internet, and a large backyard perfect for study sessions or weekend hangouts. The house has great natural light and is located in a quiet, safe neighborhood with easy access to public transportation.",
+  amenities: [
+    "WiFi",
+    "Laundry",
+    "Air Conditioning",
+    "Furnished",
+    "Dishwasher",
+    "Microwave",
+    "Coffee Maker",
+    "Backyard",
+    "Bike Storage",
+    "Study Room",
+    "Parking",
+    "Gym",
+  ],
+  available_from: "2024-09-01",
+  pets_allowed: true,
+  smoking_allowed: false,
+  status: "available",
+  images: [
+    "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&h=600&fit=crop",
+    "https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800&h=600&fit=crop",
+    "https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=800&h=600&fit=crop",
+    "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&h=600&fit=crop",
+    "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&h=600&fit=crop",
+    "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop",
+  ],
+  landlord: {
+    name: "Sarah Johnson",
+    rating: 4.8,
+    properties: 12,
+    verified: true,
+  },
+  roommates: {
+    matchScore: 87,
+    count: 3,
+    profiles: [
+      { name: "Alex", major: "Computer Science", year: "3rd Year", matchAnimal: "🦉 Owl", compatibility: 92 },
+      { name: "Maya", major: "Biology", year: "2nd Year", matchAnimal: "🐼 Panda", compatibility: 85 },
+      { name: "Jordan", major: "Engineering", year: "Final Year", matchAnimal: "🐼 Panda", compatibility: 84 },
+    ],
+  },
+  nearbyPlaces: [
+    { name: "Trinity College Dublin", distance: "0.3 mi", time: "6 min walk" },
+    { name: "Tesco Express", distance: "0.5 mi", time: "10 min walk" },
+    { name: "Pearse Street Library", distance: "0.4 mi", time: "8 min walk" },
+    { name: "Trinity Sports Centre", distance: "0.6 mi", time: "12 min walk" },
+  ],
+};
+
+const ANIMAL_EMOJI = {
+  owl: "🦉",
+  dog: "🐶",
+  cat: "🐱",
+  panda: "🐼",
+  wolf: "🐺",
+  turtle: "🐢",
+  fox: "🦊",
+  rabbit: "🐰",
+};
+
+function toCurrency(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "N/A";
+  return new Intl.NumberFormat("en-IE", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function formatAnimalTag(animalArchetype) {
+  if (!animalArchetype) return "🐼 Panda";
+  const normalized = String(animalArchetype).toLowerCase();
+  const emoji = ANIMAL_EMOJI[normalized] || "🐾";
+  const label = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  return `${emoji} ${label}`;
+}
+
+function resolveImageUrl(image) {
+  if (typeof image !== "string" || !image.trim()) return "";
+  if (/^https?:\/\//.test(image)) return image;
+
+  const filename = image.split("/").pop();
+  if (!filename) return "";
+  return `${API_BASE_URL}/api/images/${encodeURIComponent(filename)}`;
+}
+
+function normalizeProperty(rawProperty, fallback = {}) {
+  const source = rawProperty || {};
+  const imageUrls = [];
+
+  if (Array.isArray(source.image_urls)) {
+    imageUrls.push(...source.image_urls);
+  }
+  if (Array.isArray(source.images)) {
+    imageUrls.push(...source.images);
+  }
+  if (typeof source.image === "string" && source.image.trim()) {
+    imageUrls.push(source.image.trim());
+  }
+
+  const cleanImages = [...new Set(imageUrls.filter((image) => typeof image === "string" && image.trim()))]
+    .map(resolveImageUrl)
+    .filter(Boolean);
+  const fallbackImages = (Array.isArray(fallback.images) ? fallback.images : DEFAULT_PROPERTY.images)
+    .map(resolveImageUrl)
+    .filter(Boolean);
+
+  return {
+    ...DEFAULT_PROPERTY,
+    ...fallback,
+    ...source,
+    title: source.title || fallback.title || DEFAULT_PROPERTY.title,
+    address: source.address || fallback.address || DEFAULT_PROPERTY.address,
+    city: source.city || fallback.city || DEFAULT_PROPERTY.city,
+    description: source.description || fallback.description || DEFAULT_PROPERTY.description,
+    amenities: Array.isArray(source.amenities)
+      ? source.amenities
+      : Array.isArray(fallback.amenities)
+        ? fallback.amenities
+        : DEFAULT_PROPERTY.amenities,
+    images: cleanImages.length > 0 ? cleanImages : (fallbackImages.length > 0 ? fallbackImages : [FALLBACK_IMAGE]),
+    rent_per_month: Number(source.rent_per_month ?? fallback.rent_per_month ?? DEFAULT_PROPERTY.rent_per_month),
+    required_roommates: Number(
+      source.required_roommates ?? fallback.required_roommates ?? DEFAULT_PROPERTY.required_roommates
+    ),
+    nearbyPlaces: Array.isArray(source.nearbyPlaces)
+      ? source.nearbyPlaces
+      : Array.isArray(fallback.nearbyPlaces)
+        ? fallback.nearbyPlaces
+        : DEFAULT_PROPERTY.nearbyPlaces,
+    landlord: source.landlord || fallback.landlord || DEFAULT_PROPERTY.landlord,
+    roommates: source.roommates || fallback.roommates || DEFAULT_PROPERTY.roommates,
+  };
+}
 
 export default function PropertyDetails() {
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const { state } = useLocation();
+  const { propertyId } = useParams();
   const house = state?.house;
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const resolvedPropertyId = propertyId || house?.propertyId || house?.id || "";
   const [showAllAmenities, setShowAllAmenities] = useState(false);
+  const [property, setProperty] = useState(() => normalizeProperty(house || {}));
+  const [matchData, setMatchData] = useState(null);
+  const [loadingProperty, setLoadingProperty] = useState(Boolean(resolvedPropertyId));
+  const [loadingMatch, setLoadingMatch] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [submittingInterest, setSubmittingInterest] = useState(false);
+  const [isInterested, setIsInterested] = useState(false);
 
-  const [isInterested, setIsInterested] = useState(() => {
-    const saved = localStorage.getItem('house_interests');
-    if (!saved || !house?.id) return false;
-    const interests = JSON.parse(saved);
-    return Boolean(interests[house.id]);
-  });
+  useEffect(() => {
+    let isMounted = true;
 
-  // Placeholder data - would come from props or API in production
-  // Backend schema: propertyId, createdAt, title, description, address, city, 
-  // rent_per_month, required_roommates, bedrooms, bathrooms, amenities, 
-  // available_from, pets_allowed, smoking_allowed, status
-  const property = {
-    propertyId: "prop_001",
-    title: "Sunlit 4BR Near Campus",
-    address: "Trinity College Dublin, College Green, Dublin 2",
-    city: "Dublin",
-    rent_per_month: 1200,
-    required_roommates: 3,
-    bedrooms: 4,
-    bathrooms: 2,
-    description: "Spacious 4-bedroom house just minutes from campus. Recently renovated with modern appliances, high-speed fiber internet, and a large backyard perfect for study sessions or weekend hangouts. The house has great natural light and is located in a quiet, safe neighborhood with easy access to public transportation.",
-    amenities: ["WiFi", "Laundry", "Air Conditioning", "Furnished", "Dishwasher", "Microwave", "Coffee Maker", "Backyard", "Bike Storage", "Study Room", "Parking", "Gym"],
-    available_from: "2024-09-01",
-    pets_allowed: true,
-    smoking_allowed: false,
-    status: "available",
-    images: [
-      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=800&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop"
-    ],
-    landlord: {
-      name: "Sarah Johnson",
-      rating: 4.8,
-      properties: 12,
-      verified: true
-    },
-    roommates: {
-      matchScore: 87,
-      count: 3,
-      profiles: [
-        { name: "Alex", major: "Computer Science", year: "3rd Year", matchAnimal: "🦉 Owl", compatibility: 92 },
-        { name: "Maya", major: "Biology", year: "2nd Year", matchAnimal: "🐼 Panda", compatibility: 85 },
-        { name: "Jordan", major: "Engineering", year: "Final Year", matchAnimal: "🐼 Panda", compatibility: 84 }
-      ]
-    },
-    nearbyPlaces: [
-      { name: "Trinity College Dublin", distance: "0.3 mi", time: "6 min walk" },
-      { name: "Tesco Express", distance: "0.5 mi", time: "10 min walk" },
-      { name: "Pearse Street Library", distance: "0.4 mi", time: "8 min walk" },
-      { name: "Trinity Sports Centre", distance: "0.6 mi", time: "12 min walk" }
-    ]
-  };
+    async function loadProperty() {
+      if (!resolvedPropertyId) {
+        setLoadingProperty(false);
+        return;
+      }
+
+      setLoadingProperty(true);
+      setLoadError("");
+
+      try {
+        const fetchedProperty = await getProperty(resolvedPropertyId);
+        if (!isMounted) return;
+
+        if (!fetchedProperty) {
+          setLoadError("Property not found.");
+          return;
+        }
+
+        setProperty((current) => normalizeProperty(fetchedProperty, current));
+      } catch (err) {
+        if (!isMounted) return;
+        if (err?.code === "SESSION_EXPIRED") {
+          signOut("Session expired. Please sign in again.");
+          return;
+        }
+        setLoadError(err?.message || "Unable to load property details.");
+      } finally {
+        if (isMounted) {
+          setLoadingProperty(false);
+        }
+      }
+    }
+
+    loadProperty();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [resolvedPropertyId, signOut]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadMatches() {
+      if (!user?.userId || !resolvedPropertyId) {
+        setMatchData(null);
+        setIsInterested(false);
+        return;
+      }
+
+      setLoadingMatch(true);
+
+      try {
+        const matches = await getUserMatchForProperty(user.userId, resolvedPropertyId);
+        if (!isMounted) return;
+
+        setMatchData(matches);
+        setIsInterested(true);
+      } catch (err) {
+        if (!isMounted) return;
+        if (err?.code === "SESSION_EXPIRED") {
+          signOut("Session expired. Please sign in again.");
+          return;
+        }
+        setMatchData(null);
+        setIsInterested(false);
+      } finally {
+        if (isMounted) {
+          setLoadingMatch(false);
+        }
+      }
+    }
+
+    loadMatches();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [resolvedPropertyId, signOut, user?.userId]);
 
   // Map amenities to display format with icons
   const amenityIcons = {
@@ -77,23 +269,65 @@ export default function PropertyDetails() {
     icon: amenityIcons[amenity] || "✓"
   }));
 
-  const currentUser = { matchAnimal: "🐼 Panda" };
-  const matchedRoommates = property.roommates.profiles.filter(
-    (r) => r.matchAnimal === currentUser.matchAnimal
-  );
+  const fallbackRoommates = Array.isArray(property.roommates?.profiles)
+    ? property.roommates.profiles
+    : [];
+  const compatibleMatches = Array.isArray(matchData?.matches?.compatible)
+    ? matchData.matches.compatible
+    : [];
+  const matchedRoommates = compatibleMatches.length > 0
+    ? compatibleMatches.map((match) => ({
+      name: match?.name || "Unknown",
+      major: match?.course || "Course unavailable",
+      year: match?.year || "Year unavailable",
+      matchAnimal: formatAnimalTag(match?.animal_archetype),
+      compatibility: Number(match?.compatibility_score) || 0,
+    }))
+    : fallbackRoommates;
+  const roommateCount = Number.isFinite(Number(matchData?.compatibleCount))
+    ? Number(matchData.compatibleCount)
+    : matchedRoommates.length;
 
   // Use the landing page image as the first image if available
-  const displayImages = house?.image
-    ? [house.image, ...property.images.filter(img => img !== house.image)]
-    : property.images;
+  const baseImages = Array.isArray(property.images) && property.images.length > 0
+    ? property.images
+    : DEFAULT_PROPERTY.images;
+  const primaryImage = baseImages[0] || FALLBACK_IMAGE;
 
-  const handleToggleInterest = () => {
-    if (!house?.id) return;
-    const saved = localStorage.getItem('house_interests');
-    const interests = saved ? JSON.parse(saved) : {};
-    interests[house.id] = !isInterested;
-    localStorage.setItem('house_interests', JSON.stringify(interests));
-    setIsInterested(!isInterested);
+  const availableFromLabel = property.available_from
+    ? new Date(property.available_from).toLocaleDateString('en-GB', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    })
+    : "TBA";
+
+  const handleRegisterInterest = async () => {
+    if (!resolvedPropertyId || isInterested || submittingInterest) return;
+
+    setActionError("");
+    setSubmittingInterest(true);
+
+    try {
+      await registerPropertyInterest(
+        resolvedPropertyId,
+        `${toCurrency(property.rent_per_month)}/month`
+      );
+      setIsInterested(true);
+
+      if (user?.userId) {
+        const refreshedMatches = await getUserMatchForProperty(user.userId, resolvedPropertyId);
+        setMatchData(refreshedMatches);
+      }
+    } catch (err) {
+      if (err?.code === "SESSION_EXPIRED") {
+        signOut("Session expired. Please sign in again.");
+        return;
+      }
+      setActionError(err?.message || "Unable to register interest.");
+    } finally {
+      setSubmittingInterest(false);
+    }
   };
 
   return (
@@ -158,6 +392,54 @@ export default function PropertyDetails() {
         </div>
       </div>
 
+      {(loadingProperty || loadError || actionError) && (
+        <div style={{
+          maxWidth: '1400px',
+          margin: '16px auto 0',
+          padding: '0 40px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+        }}>
+          {loadingProperty && (
+            <div style={{
+              background: 'white',
+              border: '1px solid #e2e8f0',
+              borderRadius: '10px',
+              padding: '12px 16px',
+              fontSize: '14px',
+              color: '#475569',
+            }}>
+              Loading latest property details...
+            </div>
+          )}
+          {loadError && (
+            <div style={{
+              background: '#fff1f2',
+              border: '1px solid #fecdd3',
+              borderRadius: '10px',
+              padding: '12px 16px',
+              fontSize: '14px',
+              color: '#be123c',
+            }}>
+              {loadError}
+            </div>
+          )}
+          {actionError && (
+            <div style={{
+              background: '#fff1f2',
+              border: '1px solid #fecdd3',
+              borderRadius: '10px',
+              padding: '12px 16px',
+              fontSize: '14px',
+              color: '#be123c',
+            }}>
+              {actionError}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Hero Section */}
       <div style={{
         background: 'white',
@@ -195,69 +477,29 @@ export default function PropertyDetails() {
             Back to listings
           </button>
 
-          {/* Main Image Gallery */}
+          {/* Primary Property Image */}
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: '2fr 1fr 1fr',
-            gap: '12px',
             height: '520px',
             borderRadius: '16px',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            position: 'relative',
+            cursor: 'pointer',
           }}>
-            <div style={{
-              gridRow: 'span 2',
-              position: 'relative',
-              overflow: 'hidden',
-              cursor: 'pointer'
-            }}>
-              <img 
-                src={displayImages[0]} 
-                alt="Main view"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  transition: 'transform 0.4s ease'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              />
-            </div>
-            {displayImages.slice(1, 5).map((img, idx) => (
-              <div key={idx} style={{
-                position: 'relative',
-                overflow: 'hidden',
-                cursor: 'pointer'
-              }}>
-                <img 
-                  src={img} 
-                  alt={`View ${idx + 2}`}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    transition: 'transform 0.4s ease'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                />
-                {idx === 3 && (
-                  <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontSize: '16px',
-                    fontWeight: '600'
-                  }}>
-                    +{displayImages.length - 5} more
-                  </div>
-                )}
-              </div>
-            ))}
+            <img
+              src={primaryImage}
+              alt={`${property.title} primary`}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                transition: 'transform 0.4s ease',
+              }}
+              onError={(e) => {
+                e.currentTarget.src = FALLBACK_IMAGE;
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            />
           </div>
         </div>
       </div>
@@ -294,7 +536,7 @@ export default function PropertyDetails() {
                   margin: '0 0 12px 0',
                   letterSpacing: '-0.5px'
                 }}>
-                  {house?.title ?? property.title}
+                  {property.title}
                 </h1>
                 <p style={{
                   fontSize: '16px',
@@ -304,7 +546,7 @@ export default function PropertyDetails() {
                   alignItems: 'center',
                   gap: '6px'
                 }}>
-                  <span>📍</span> {house?.location ?? property.address}
+                  <span>📍</span> {property.address}
                 </p>
               </div>
               <button style={{
@@ -453,7 +695,11 @@ export default function PropertyDetails() {
                 marginBottom: '32px',
                 lineHeight: '1.6'
               }}>
-                You have {property.roommates.count} highly compatible matches already living here!
+                {loadingMatch
+                  ? "Checking compatibility..."
+                  : isInterested
+                    ? `You currently have ${roommateCount} compatible matches for this property.`
+                    : "Register interest to see compatible roommate matches for this property."}
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -483,7 +729,7 @@ export default function PropertyDetails() {
                         width: '56px',
                         height: '56px',
                         borderRadius: '50%',
-                        background: `linear-gradient(135deg, ${['#ff6b6b', '#4ecdc4', '#45b7d1'][idx]} 0%, ${['#ff8787', '#5ee7df', '#5bc8de'][idx]} 100%)`,
+                        background: `linear-gradient(135deg, ${['#ff6b6b', '#4ecdc4', '#45b7d1'][idx % 3]} 0%, ${['#ff8787', '#5ee7df', '#5bc8de'][idx % 3]} 100%)`,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -705,7 +951,7 @@ export default function PropertyDetails() {
                 color: '#0f172a',
                 letterSpacing: '-1px'
               }}>
-                {house?.rent ?? `€${property.rent_per_month} / month`}
+                {`${toCurrency(property.rent_per_month)} / month`}
               </span>
             </div>
 
@@ -719,16 +965,13 @@ export default function PropertyDetails() {
                 Available From
               </div>
               <div style={{ fontSize: '18px', fontWeight: '600', color: '#0f172a' }}>
-                {new Date(property.available_from).toLocaleDateString('en-GB', { 
-                  year: 'numeric', 
-                  month: 'short', 
-                  day: 'numeric' 
-                })}
+                {availableFromLabel}
               </div>
             </div>
 
             <button
-              onClick={handleToggleInterest}
+              onClick={handleRegisterInterest}
+              disabled={isInterested || submittingInterest}
               style={{
               width: '100%',
               background: isInterested ? '#dcfce7' : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
@@ -738,19 +981,26 @@ export default function PropertyDetails() {
               borderRadius: '12px',
               fontSize: '17px',
               fontWeight: '700',
-              cursor: 'pointer',
               transition: 'all 0.3s ease',
-              boxShadow: isInterested ? '0 4px 12px rgba(5, 150, 105, 0.2)' : '0 4px 12px rgba(5, 150, 105, 0.3)'
+              boxShadow: isInterested ? '0 4px 12px rgba(5, 150, 105, 0.2)' : '0 4px 12px rgba(5, 150, 105, 0.3)',
+              opacity: submittingInterest ? 0.8 : 1,
+              cursor: isInterested || submittingInterest ? 'not-allowed' : 'pointer',
             }}
             onMouseEnter={(e) => {
+              if (isInterested || submittingInterest) return;
               e.currentTarget.style.transform = 'translateY(-2px)';
               e.currentTarget.style.boxShadow = isInterested ? '0 8px 20px rgba(5, 150, 105, 0.3)' : '0 8px 20px rgba(5, 150, 105, 0.4)';
             }}
             onMouseLeave={(e) => {
+              if (isInterested || submittingInterest) return;
               e.currentTarget.style.transform = 'translateY(0)';
               e.currentTarget.style.boxShadow = isInterested ? '0 4px 12px rgba(5, 150, 105, 0.2)' : '0 4px 12px rgba(5, 150, 105, 0.3)';
             }}>
-              {isInterested ? 'Interest Registered ✓' : 'Register Interest'}
+              {isInterested
+                ? 'Interest Registered ✓'
+                : submittingInterest
+                  ? 'Registering...'
+                  : 'Register Interest'}
             </button>
           </div>
 

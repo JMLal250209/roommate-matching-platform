@@ -1,124 +1,200 @@
-import { useMemo, useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-const HOUSES = [
-  {
-    id: 1,
-    title: "Riverside Commons",
-    image:
-      "https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=1200&q=80",
-    rent: "$980 / month",
-    people: "3 people",
-    location: "Dublin 4",
-  },
-  {
-    id: 2,
-    title: "Maple Street Loft",
-    image:
-      "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1200&q=80",
-    rent: "$1,150 / month",
-    people: "2 people",
-    location: "Dublin 2",
-  },
-  {
-    id: 3,
-    title: "Willow Court",
-    image:
-      "https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1200&q=80",
-    rent: "$870 / month",
-    people: "4 people",
-    location: "Ranelagh",
-  },
-  {
-    id: 4,
-    title: "Canal Side House",
-    image:
-      "https://images.unsplash.com/photo-1518780664697-55e3ad937233?auto=format&fit=crop&w=1200&q=80",
-    rent: "$1,050 / month",
-    people: "3 people",
-    location: "Portobello",
-  },
-  {
-    id: 5,
-    title: "Oakview Residence",
-    image:
-      "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1200&q=80",
-    rent: "$930 / month",
-    people: "2 people",
-    location: "Drumcondra",
-  },
-  {
-    id: 6,
-    title: "Ivy Lane",
-    image:
-      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80",
-    rent: "$1,220 / month",
-    people: "4 people",
-    location: "Smithfield",
-  },
-  {
-    id: 7,
-    title: "Cityview Terrace",
-    image:
-      "https://images.unsplash.com/photo-1600566752227-8f8f0a7be1a7?auto=format&fit=crop&w=1200&q=80",
-    rent: "$1,080 / month",
-    people: "3 people",
-    location: "Ballsbridge",
-  },
-  {
-    id: 8,
-    title: "Harbor Point",
-    image:
-      "https://images.unsplash.com/photo-1560185009-5bf9f2849488?auto=format&fit=crop&w=1200&q=80",
-    rent: "$1,300 / month",
-    people: "2 people",
-    location: "Docklands",
-  },
-  {
-    id: 9,
-    title: "Elm Green",
-    image:
-      "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80",
-    rent: "$910 / month",
-    people: "4 people",
-    location: "Phibsborough",
-  },
-  {
-    id: 10,
-    title: "Seabreeze House",
-    image:
-      "https://images.unsplash.com/photo-1507089947368-19c1da9775ae?auto=format&fit=crop&w=1200&q=80",
-    rent: "$1,180 / month",
-    people: "3 people",
-    location: "Clontarf",
-  },
-];
+import { useAuth } from "./context/AuthContext.jsx";
+import { API_BASE_URL } from "./lib/api";
+import {
+  getUserMatchForProperty,
+  getUserPropertyInterests,
+  listProperties,
+  registerPropertyInterest,
+} from "./lib/propertiesApi";
 
 const PER_PAGE = 6;
+const FALLBACK_IMAGE = `${API_BASE_URL}/api/images/house_1.jpeg`;
+
+function toCurrency(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "N/A";
+  return new Intl.NumberFormat("en-IE", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function getImageUrl(property) {
+  const imageCandidates = [];
+
+  if (Array.isArray(property?.image_urls)) {
+    imageCandidates.push(...property.image_urls);
+  }
+  if (typeof property?.image === "string") {
+    imageCandidates.push(property.image);
+  }
+
+  const firstImage = imageCandidates.find((image) => typeof image === "string" && image.trim());
+  if (!firstImage) return FALLBACK_IMAGE;
+
+  if (/^https?:\/\//.test(firstImage)) {
+    return firstImage;
+  }
+
+  const filename = firstImage.split("/").pop();
+  if (!filename) {
+    return FALLBACK_IMAGE;
+  }
+
+  return `${API_BASE_URL}/api/images/${encodeURIComponent(filename)}`;
+}
+
+function getMatchSummary(matchInfo) {
+  if (!matchInfo) return "";
+
+  if (matchInfo.interestStatus === "matched") {
+    return "Matched group formed for this property.";
+  }
+
+  const totalInterested = Number(matchInfo.totalInterested) || 0;
+  const requiredRoommates = Number(matchInfo.requiredRoommates) || 0;
+  if (totalInterested < requiredRoommates) {
+    return `Waiting for more students (${totalInterested}/${requiredRoommates} interested).`;
+  }
+
+  const otherInterested = Math.max(totalInterested - 1, 0);
+  const compatibleCount = Number(matchInfo.compatibleCount) || 0;
+  return `${compatibleCount} compatible out of ${otherInterested} other interested students.`;
+}
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
+  const [properties, setProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
-  const [interests, setInterests] = useState(() => {
-    const saved = localStorage.getItem('house_interests');
-    return saved ? JSON.parse(saved) : {};
-  });
-
-  const totalPages = Math.ceil(HOUSES.length / PER_PAGE);
-
-  const visibleHouses = useMemo(() => {
-    const start = page * PER_PAGE;
-    return HOUSES.slice(start, start + PER_PAGE);
-  }, [page]);
+  const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [interests, setInterests] = useState({});
+  const [matchByProperty, setMatchByProperty] = useState({});
+  const [submitting, setSubmitting] = useState({});
 
   useEffect(() => {
-    localStorage.setItem('house_interests', JSON.stringify(interests));
-  }, [interests]);
+    let isMounted = true;
 
-  const handleRegisterInterest = (houseId, e) => {
-    e.stopPropagation(); // Prevent navigation when clicking button
-    setInterests((prev) => ({ ...prev, [houseId]: !prev[houseId] }));
-  };
+    async function loadData() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const [propertyRows, interestRows] = await Promise.all([
+          listProperties(),
+          user?.userId ? getUserPropertyInterests(user.userId) : Promise.resolve([]),
+        ]);
+
+        if (!isMounted) return;
+
+        setProperties(propertyRows || []);
+
+        const interestedMap = {};
+        for (const item of interestRows || []) {
+          if (item?.propertyId) {
+            interestedMap[item.propertyId] = true;
+          }
+        }
+        setInterests(interestedMap);
+
+        const interestedPropertyIds = (interestRows || [])
+          .map((row) => row?.propertyId)
+          .filter(Boolean);
+
+        let nextMatches = {};
+        if (user?.userId && interestedPropertyIds.length > 0) {
+          const matchEntries = await Promise.all(
+            interestedPropertyIds.map(async (propertyId) => {
+              try {
+                const matchData = await getUserMatchForProperty(user.userId, propertyId);
+                return [propertyId, matchData];
+              } catch (err) {
+                if (err?.code === "SESSION_EXPIRED") {
+                  throw err;
+                }
+                return [propertyId, null];
+              }
+            })
+          );
+
+          nextMatches = Object.fromEntries(
+            matchEntries.filter(([, data]) => Boolean(data))
+          );
+        }
+
+        if (!isMounted) return;
+        setMatchByProperty(nextMatches);
+      } catch (err) {
+        if (!isMounted) return;
+
+        if (err?.code === "SESSION_EXPIRED") {
+          signOut("Session expired. Please sign in again.");
+          return;
+        }
+
+        setError(err?.message || "Failed to load properties.");
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadData();
+    return () => {
+      isMounted = false;
+    };
+  }, [signOut, user?.userId]);
+
+  const totalPages = Math.max(1, Math.ceil(properties.length / PER_PAGE));
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages - 1));
+  }, [totalPages]);
+
+  const visibleProperties = useMemo(() => {
+    const start = page * PER_PAGE;
+    return properties.slice(start, start + PER_PAGE);
+  }, [page, properties]);
+
+  async function handleRegisterInterest(property) {
+    setActionError("");
+    setSubmitting((prev) => ({ ...prev, [property.propertyId]: true }));
+
+    try {
+      await registerPropertyInterest(property.propertyId, `${toCurrency(property.rent_per_month)}/month`);
+      setInterests((prev) => ({ ...prev, [property.propertyId]: true }));
+
+      if (user?.userId) {
+        try {
+          const matchData = await getUserMatchForProperty(user.userId, property.propertyId);
+          if (matchData) {
+            setMatchByProperty((prev) => ({ ...prev, [property.propertyId]: matchData }));
+          }
+        } catch (matchErr) {
+          if (matchErr?.code === "SESSION_EXPIRED") {
+            signOut("Session expired. Please sign in again.");
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      if (err?.code === "SESSION_EXPIRED") {
+        signOut("Session expired. Please sign in again.");
+        return;
+      }
+
+      setActionError(err?.message || "Unable to register interest.");
+    } finally {
+      setSubmitting((prev) => ({ ...prev, [property.propertyId]: false }));
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 px-6 py-8 md:px-10 md:py-10">
@@ -127,7 +203,7 @@ export default function LandingPage() {
           <div>
             <p className="text-sm uppercase tracking-wide text-slate-500">SHRMP Listings</p>
             <h1 className="text-3xl font-bold">Student Homes</h1>
-            <p className="mt-1 text-slate-600">Showing 6 houses per page</p>
+            <p className="mt-1 text-slate-600">Showing up to 6 houses per page</p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -167,49 +243,90 @@ export default function LandingPage() {
           </div>
         </div>
 
+        {loading ? (
+          <div className="rounded-lg border border-slate-200 bg-white p-4 text-slate-700">Loading properties...</div>
+        ) : null}
+
+        {error ? (
+          <div className="mb-4 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {error}
+          </div>
+        ) : null}
+
+        {actionError ? (
+          <div className="mb-4 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {actionError}
+          </div>
+        ) : null}
+
+        {!loading && !error && visibleProperties.length === 0 ? (
+          <div className="rounded-lg border border-slate-200 bg-white p-4 text-slate-700">
+            No properties are currently available.
+          </div>
+        ) : null}
+
         <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {visibleHouses.map((house) => {
-            const interested = Boolean(interests[house.id]);
+          {visibleProperties.map((property) => {
+            const propertyId = property.propertyId;
+            const interested = Boolean(interests[propertyId]);
+            const isSubmitting = Boolean(submitting[propertyId]);
+            const matchSummary = getMatchSummary(matchByProperty[propertyId]);
 
             return (
               <article
-                key={house.id}
-                onClick={() => navigate('/house1/details', { state: { house } })}
-                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm cursor-pointer"
+                key={propertyId}
+                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
               >
                 <img
-                  src={house.image}
-                  alt={`${house.title} cover`}
+                  src={getImageUrl(property)}
+                  alt={`${property.title} cover`}
                   className="h-44 w-full object-cover"
                   loading="lazy"
                 />
 
                 <div className="space-y-3 p-4">
-                  <h2 className="text-lg font-semibold">{house.title}</h2>
+                  <h2 className="text-lg font-semibold">{property.title}</h2>
 
                   <div className="text-sm text-slate-700">
                     <p>
-                      <span className="font-medium">Rent:</span> {house.rent}
+                      <span className="font-medium">Rent:</span> {toCurrency(property.rent_per_month)} / month
                     </p>
                     <p>
-                      <span className="font-medium">Capacity:</span> {house.people}
+                      <span className="font-medium">Capacity:</span> {property.required_roommates} roommates
                     </p>
                     <p>
-                      <span className="font-medium">Location:</span> {house.location}
+                      <span className="font-medium">Location:</span> {property.city}
                     </p>
                   </div>
 
                   <button
                     type="button"
-                    onClick={(e) => handleRegisterInterest(house.id, e)}
-                    className={`mt-1 w-full rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
-                      interested
-                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200'
-                        : 'bg-emerald-600 text-white hover:bg-emerald-500'
-                    }`}
+                    onClick={() =>
+                      navigate(`/properties/${encodeURIComponent(propertyId)}`, {
+                        state: { house: property },
+                      })
+                    }
+                    className="w-full rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                   >
-                    {interested ? "Interest Registered ✓" : "Register Interest"}
+                    View Details
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleRegisterInterest(property)}
+                    disabled={interested || isSubmitting}
+                    className="mt-1 w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                  >
+                    {interested
+                      ? "Interest Registered"
+                      : isSubmitting
+                        ? "Registering..."
+                        : "Register Interest"}
+                  </button>
+
+                  {interested && matchSummary ? (
+                    <p className="text-xs text-slate-600">{matchSummary}</p>
+                  ) : null}
                 </div>
               </article>
             );

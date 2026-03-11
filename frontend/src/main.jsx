@@ -6,13 +6,17 @@ import { ProfileProvider } from "./context/ProfileContext.jsx";
 import "./index.css";
 import "./styles.css";
 import App from "./App.jsx";
+import { AuthProvider } from "./context/AuthContext.jsx";
+import { ProfileDraftProvider } from "./context/ProfileDraftContext.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
-      <ProfileProvider>
-        <App />
-      </ProfileProvider>
+      <AuthProvider>
+        <ProfileDraftProvider>
+          <App />
+        </ProfileDraftProvider>
+      </AuthProvider>
     </BrowserRouter>
   </StrictMode>
 );
