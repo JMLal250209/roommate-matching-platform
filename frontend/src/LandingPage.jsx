@@ -67,16 +67,28 @@ function getMatchSummary(matchInfo) {
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
-
-  const [properties, setProperties] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { profile } = useProfile();
   const [page, setPage] = useState(0);
-  const [error, setError] = useState("");
-  const [actionError, setActionError] = useState("");
-  const [interests, setInterests] = useState({});
-  const [matchByProperty, setMatchByProperty] = useState({});
-  const [submitting, setSubmitting] = useState({});
+  const [showHomesMenu, setShowHomesMenu] = useState(false);
+  const homesMenuRef = useRef(null);
+  const [interests, setInterests] = useState(() => {
+    const saved = localStorage.getItem('house_interests');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const totalPages = Math.ceil(HOUSES.length / PER_PAGE);
+
+  const visibleHouses = useMemo(() => {
+    const start = page * PER_PAGE;
+    return HOUSES.slice(start, start + PER_PAGE);
+  }, [page]);
+
+  const currentAnimal = useMemo(() => {
+    const candidate = profile.animalArchetype || assignAnimal(profile);
+    return ANIMAL_PROFILES[candidate] ? candidate : "panda";
+  }, [profile]);
+
+  const fellowAnimalLabel = useMemo(() => getAnimalLabel(currentAnimal), [currentAnimal]);
 
   useEffect(() => {
     let isMounted = true;
@@ -202,8 +214,42 @@ export default function LandingPage() {
         <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm uppercase tracking-wide text-slate-500">SHRMP Listings</p>
-            <h1 className="text-3xl font-bold">Student Homes</h1>
-            <p className="mt-1 text-slate-600">Showing up to 6 houses per page</p>
+            <div ref={homesMenuRef} className="relative inline-block">
+              <button
+                type="button"
+                onClick={() => setShowHomesMenu((open) => !open)}
+                className="inline-flex items-center gap-3 rounded-xl border border-emerald-300 bg-emerald-600 px-5 py-3 text-xl font-bold text-white shadow-md transition hover:bg-emerald-500"
+              >
+                <span>Student Homes</span>
+                <span className={`text-lg transition-transform ${showHomesMenu ? "rotate-180" : ""}`}>▾</span>
+              </button>
+              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                Click to open views
+              </p>
+
+              {showHomesMenu && (
+                <div className="absolute left-0 top-full z-20 mt-2 w-64 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg">
+                  <button
+                    type="button"
+                    onClick={() => setShowHomesMenu(false)}
+                    className="block w-full border-b border-slate-200 bg-emerald-50 px-4 py-2 text-left text-sm font-semibold text-emerald-700"
+                  >
+                    Student Homes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowHomesMenu(false);
+                      navigate("/landing/others");
+                    }}
+                    className="block w-full px-4 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Other {fellowAnimalLabel}
+                  </button>
+                </div>
+              )}
+            </div>
+            <p className="mt-1 text-slate-600">Showing 6 houses per page</p>
           </div>
 
           <div className="flex items-center gap-3">
