@@ -542,3 +542,98 @@ def get_user_property_interests(user_id):
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+    
+# Add this route to matching_routes.py
+
+@matching_bp.route('/api/properties/<string:property_id>/potential-matches', methods=['GET'])
+def get_potential_matches(property_id):
+    """
+    Return a preview of how compatible the requesting user would be with
+    people already interested in this property — WITHOUT requiring the
+    caller to have registered interest themselves.
+
+    Used on the property detail page to show "You could live with..." before
+    the user decides to register interest.
+    """
+    try:
+        user_id = request.user['userId']
+
+        users_table      = get_users_table()
+        properties_table = get_properties_table()
+        interests_table  = get_interests_table()
+
+        user = get_user(users_table, user_id)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+
+        property_data = get_property(properties_table, property_id)
+        if not property_data:
+            return jsonify({"success": False, "error": "Property not found"}), 404
+
+        # Get all active (non-withdrawn) interests, excluding the requesting user
+        all_interests = get_property_interests(interests_table, property_id)
+        active_others = [
+            i for i in all_interests
+            if i["userId"] != user_id and i.get("status") != "withdrawn"
+        ]
+
+        if not active_others:
+            return jsonify({
+                "success": True,
+                "data": {
+                    "propertyId":        property_id,
+                    "yourAnimal":        user.get("animal_archetype"),
+                    "totalInterested":   0,
+                    "requiredRoommates": property_data.get("required_roommates", 2),
+                    "potentialMatches":  [],
+                    "compatibleCount":   0,
+                    "message":           "No one else has registered interest yet. Be the first!",
+                },
+            }), 200
+
+        # Hydrate user objects
+        other_users = []
+        for interest in active_others:
+            other_user = get_user(users_table, interest["userId"])
+            if other_user:
+                other_users.append(other_user)
+
+        matches      = find_matches_for_property(user, other_users)
+        compatible   = [m for m in matches if m["compatibility_score"] >= 60]
+        incompatible = [m for m in matches if m["compatibility_score"] < 60]
+
+        # Only expose the fields needed for the preview card — no emails
+        def _safe_preview(match):
+            return {
+                "name":               match["name"],
+                "animal_archetype":   match["animal_archetype"],
+                "compatibility_score":match["compatibility_score"],
+                "scoreBreakdown":     match.get("scoreBreakdown", {}),
+                "course":             match.get("course", ""),
+                "year":               match.get("year", ""),
+                "interests":          match.get("interests", []),
+                "cleanliness":        match.get("cleanliness"),
+                "noise_level":        match.get("noise_level"),
+                "wakeTime":           match.get("wakeTime"),
+                "socialPreference":   match.get("socialPreference"),
+            }
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "propertyId":        property_id,
+                "yourAnimal":        user.get("animal_archetype"),
+                "totalInterested":   len(other_users),
+                "requiredRoommates": property_data.get("required_roommates", 2),
+                "potentialMatches":  [_safe_preview(m) for m in compatible[:5]],
+                "compatibleCount":   len(compatible),
+                "incompatibleCount": len(incompatible),
+                "message": (
+                    f"{len(compatible)} of {len(other_users)} people interested "
+                    f"in this property are compatible with you."
+                ),
+            },
+        }), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500

@@ -112,9 +112,14 @@ def update_user_profile(table, user_id, profile_updates):
     # Merge updates with current profile
     updated_profile = {**current_profile, **profile_updates}
 
-    personality_fields = {"wakeTime", "bedtime", "socialPreference", "cleanliness"}
+    personality_fields = {
+    "wakeTime", "bedtime",
+    "noise_level",           # was missing
+    "socialPreference",
+    "cleanliness",
+}
     personality_changed = bool(personality_fields & set(profile_updates.keys()))
-
+    
     # Build update expression
     update_expression_parts = ["profile = :profile", "updatedAt = :updatedAt"]
     expression_attribute_values = {
@@ -123,13 +128,8 @@ def update_user_profile(table, user_id, profile_updates):
     }
 
     if personality_changed:
-        profile_for_archetype = {
-            "wakeTime": updated_profile.get("wakeTime"),
-            "bedtime": updated_profile.get("bedtime"),
-            "socialPreference": updated_profile.get("socialPreference"),
-            "cleanliness": updated_profile.get("cleanliness"),
-        }
-        new_animal = assign_animal_archetype(profile_for_archetype)
+        # Pass the full nested profile so get_profile_field() can find everything
+        new_animal = assign_animal_archetype({"profile": updated_profile})
         update_expression_parts.append("animal_archetype = :animal")
         expression_attribute_values[":animal"] = new_animal
 
