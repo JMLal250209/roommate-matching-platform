@@ -1,14 +1,44 @@
-// frontend/src/Register.jsx
-
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { signup } from "./lib/authApi";
+import { useAuth } from "./context/AuthContext.jsx";
 
 export default function Register() {
   const navigate = useNavigate();
+  const { signIn } = useAuth();
 
-  function handleSubmit(e) {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e) {
     e.preventDefault();
-    // UI only: don't store anything yet, just go to profile creation
-    navigate("/create-profile");
+    setError("");
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      await signup({
+        email: email.trim(),
+        password,
+        name: name.trim(),
+      });
+
+      await signIn({ email: email.trim(), password });
+      navigate("/create-profile", { replace: true });
+    } catch (err) {
+      setError(err?.message || "Registration failed. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -16,44 +46,58 @@ export default function Register() {
       <div className="flex w-full items-center justify-center px-6 py-12">
         <div className="w-full max-w-md rounded-2xl border border-emerald-100 bg-white p-8 shadow-sm">
           <div className="mb-6 text-center">
-            <div className="text-3xl font-bold text-emerald-600 mb-2">
-              SHRMP
-            </div>
+            <div className="text-3xl font-bold text-emerald-600 mb-2">SHRMP</div>
             <h1 className="text-2xl font-bold">Create your account</h1>
             <p className="mt-1 text-sm text-slate-600">
               Register with your email so you can save preferences and matches.
             </p>
           </div>
 
+          {error ? (
+            <div className="mb-4 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {error}
+            </div>
+          ) : null}
+
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Email address
-              </label>
+              <label className="block text-sm font-medium text-slate-700">Display name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="mt-2 block w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-slate-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Email address</label>
               <input
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 className="mt-2 block w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-slate-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-300"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Password
-              </label>
+              <label className="block text-sm font-medium text-slate-700">Password</label>
               <input
                 type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
                 className="mt-2 block w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-slate-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-300"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Confirm password
-              </label>
+              <label className="block text-sm font-medium text-slate-700">Confirm password</label>
               <input
                 type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 className="mt-2 block w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-slate-900 shadow-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-300"
               />
@@ -61,9 +105,10 @@ export default function Register() {
 
             <button
               type="submit"
-              className="mt-2 w-full rounded-md bg-emerald-600 py-2 font-semibold text-white hover:bg-emerald-500"
+              disabled={submitting}
+              className="mt-2 w-full rounded-md bg-emerald-600 py-2 font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
             >
-              Register
+              {submitting ? "Creating account..." : "Register"}
             </button>
           </form>
 
@@ -82,4 +127,3 @@ export default function Register() {
     </div>
   );
 }
-

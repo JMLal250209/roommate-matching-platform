@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useProfile } from "../context/ProfileContext.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
+import {
+  mapBackendProfileToProfileView,
+  mapProfileViewToBackendProfile,
+} from "../lib/profileMapping";
+import { getUser, getUserAnimal, updateUser } from "../lib/usersApi";
 import PillSelect from "../components/PillSelect.jsx";
 import TagPicker from "../components/TagPicker.jsx";
 import "./ProfileView.css";
+
+const STEPS = ["Basic", "Housing", "About You"];
+const DEFAULT_PROFILE = mapBackendProfileToProfileView({});
 
 const ROOM_TYPES = [
   { value: "single", label: "Single room" },
@@ -70,9 +78,20 @@ const YES_NO = [
 ];
 
 const INTERESTS = [
-  "Gym", "Sports", "Gaming", "Music", "Cooking", "Reading",
-  "Nightlife", "Coffee", "Films", "Hiking", "Societies", "Tech",
-  "Art", "Travel",
+  "Gym",
+  "Sports",
+  "Gaming",
+  "Music",
+  "Cooking",
+  "Reading",
+  "Nightlife",
+  "Coffee",
+  "Films",
+  "Hiking",
+  "Societies",
+  "Tech",
+  "Art",
+  "Travel",
 ];
 
 const TRAITS = [
@@ -94,19 +113,89 @@ const TRAITS = [
   "Neat kitchen person",
 ];
 
-const STEPS = ["Course, quick info & bio", "Housing requirements", "About you"];
-
 function labelFor(value, options) {
-  return options.find((o) => o.value === value)?.label ?? value;
+  return options.find((option) => option.value === value)?.label || value || "—";
+}
+
+function omitUndefinedFields(obj) {
+  return Object.fromEntries(Object.entries(obj).filter(([, value]) => value !== undefined));
 }
 
 export default function ProfileView() {
   const navigate = useNavigate();
-  const { profile, updateProfile } = useProfile();
-  const [step, setStep] = useState(0);
+  const { user, setUser, signOut } = useAuth();
+  const [step, setStep] = useState(0); // 0,1,2
   const [isEditing, setIsEditing] = useState(false);
   const [message, setMessage] = useState("");
-  const [draft, setDraft] = useState(profile);
+  const [loadError, setLoadError] = useState("");
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [backendProfile, setBackendProfile] = useState({});
+  const [animalInfo, setAnimalInfo] = useState(null);
+
+  useEffect(() => {
+    if (!message) return;
+
+    const timer = setTimeout(() => {
+      setMessage("");
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [message]);
+
+  const [profile, setProfile] = useState(DEFAULT_PROFILE);
+
+  const [draft, setDraft] = useState(DEFAULT_PROFILE);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadProfile() {
+      if (!user?.userId) {
+        setAnimalInfo(null);
+        setLoadingProfile(false);
+        return;
+      }
+
+      setLoadingProfile(true);
+      setLoadError("");
+
+      try {
+        const [freshUser, freshAnimal] = await Promise.all([
+          getUser(user.userId),
+          getUserAnimal(user.userId).catch(() => null),
+        ]);
+        if (!isMounted || !freshUser) return;
+
+        const mapped = mapBackendProfileToProfileView(freshUser.profile || {}, freshUser.name);
+        setBackendProfile(freshUser.profile || {});
+        setProfile(mapped);
+        setDraft(mapped);
+        setUser(freshUser);
+        setAnimalInfo(freshAnimal);
+      } catch (err) {
+        if (!isMounted) return;
+        if (err?.code === "SESSION_EXPIRED") {
+          signOut("Session expired. Please sign in again.");
+          return;
+        }
+        setLoadError(err?.message || "Unable to load profile.");
+      } finally {
+        if (isMounted) {
+          setLoadingProfile(false);
+        }
+      }
+    }
+
+    loadProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, [setUser, signOut, user?.userId]);
+
+  const fallbackLetter = (user?.name || "U").charAt(0).toUpperCase();
+
+  // Local uploaded image preview (doesn't require backend)
   const [photoPreview, setPhotoPreview] = useState("");
 
   const accent = "#059669";
@@ -151,14 +240,63 @@ export default function ProfileView() {
     setDraft(profile);
     setIsEditing(false);
     setPhotoPreview("");
-    setMessage("Edit cancelled");
+    setLoadError("");
+    setMessage("Edit cancelled.");
   }
 
-  function saveEdit(e) {
+  async function saveEdit(e) {
     e.preventDefault();
-    updateProfile(draft);
-    setIsEditing(false);
-    setMessage("Profile updated");
+    setLoadError("");
+
+    if (!user?.userId) {
+      setLoadError("No authenticated user found. Please sign in again.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      let latestUser = user;
+
+      const nextDisplayName = (draft.displayName || "").trim();
+      if (nextDisplayName && nextDisplayName !== user.name) {
+        const renamed = await updateUser(user.userId, { name: nextDisplayName });
+        if (renamed) {
+          latestUser = renamed;
+          setUser(renamed);
+        }
+      }
+
+      const profilePatch = omitUndefinedFields({
+        ...backendProfile,
+        ...mapProfileViewToBackendProfile(draft),
+      });
+
+      const updatedUser = await updateUser(user.userId, { profile: profilePatch });
+      if (updatedUser) {
+        latestUser = updatedUser;
+        setUser(updatedUser);
+      }
+
+      const persistedProfile = updatedUser?.profile || profilePatch;
+      const mapped = mapBackendProfileToProfileView(
+        persistedProfile,
+        latestUser?.name || nextDisplayName || user.name
+      );
+      setBackendProfile(persistedProfile);
+      setProfile(mapped);
+      setDraft(mapped);
+      setIsEditing(false);
+      setMessage("Profile updated.");
+    } catch (err) {
+      if (err?.code === "SESSION_EXPIRED") {
+        signOut("Session expired. Please sign in again.");
+        return;
+      }
+      setLoadError(err?.message || "Unable to save profile changes.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function onUploadPhoto(e) {
@@ -170,7 +308,16 @@ export default function ProfileView() {
   }
 
   const displayedPhoto = photoPreview || profile.photoUrl;
-  const fallbackLetter = (profile.displayName || "?")[0].toUpperCase();
+
+  if (loadingProfile) {
+    return (
+      <div className="page" style={{ background: pageBg, color: text }}>
+        <div className="card" style={{ borderColor: accent, background: cardBg }}>
+          <div className="cardBody">Loading profile...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page" style={{ background: pageBg, color: text }}>
@@ -192,6 +339,7 @@ export default function ProfileView() {
         </div>
 
         {message && <div className="toast">{message}</div>}
+        {loadError && <div className="toast" style={{ background: "#FEE2E2", color: "#9F1239" }}>{loadError}</div>}
 
         <div className="stepper">
           {STEPS.map((label, i) => (
@@ -215,7 +363,7 @@ export default function ProfileView() {
               displayedPhoto={displayedPhoto}
               fallbackLetter={fallbackLetter}
             />
-            {step === 0 && <QuickInfoView profile={profile} />}
+            {step === 0 && <QuickInfoView profile={profile} animalInfo={animalInfo} />}
             {step === 1 && <HousingView profile={profile} />}
             {step === 2 && <AboutView profile={profile} />}
           </div>
@@ -246,8 +394,9 @@ export default function ProfileView() {
                   Next
                 </button>
               </div>
-              <button className="btn btnSave" type="submit">
-                Save Changes
+
+              <button className="btn btnSave" type="submit" disabled={saving}>
+                {saving ? "Saving..." : "💾 Save Changes"}
               </button>
             </div>
           </form>
@@ -324,13 +473,27 @@ function PhotoEdit({ accent, displayedPhoto, fallbackLetter, draft, setDraft, on
   );
 }
 
-function QuickInfoView({ profile }) {
+function formatAnimalLabel(value) {
+  if (!value) return "—";
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function QuickInfoView({ profile, animalInfo }) {
+  const compatibleAnimals = Array.isArray(animalInfo?.compatible_animals)
+    ? animalInfo.compatible_animals.map(formatAnimalLabel).join(", ")
+    : "";
+
   return (
     <div className="panel">
       <h2 className="h2">Course, quick info & bio</h2>
       <div className="kv">
         <div><strong>Display name:</strong> {profile.displayName || "—"}</div>
         <div><strong>Course / year:</strong> {profile.course || "—"}</div>
+        <div><strong>Animal archetype:</strong> {formatAnimalLabel(animalInfo?.animal)}</div>
+        <div><strong>Best matches:</strong> {compatibleAnimals || "—"}</div>
         <div><strong>Quick descriptors:</strong> {Array.isArray(profile.traits) && profile.traits.length > 0 ? profile.traits.join(", ") : "None"}</div>
         <div><strong>Bio:</strong> {profile.bio || "—"}</div>
       </div>

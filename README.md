@@ -1,10 +1,40 @@
 # Group 8
 
-# Frontend
+## Backend
 
-## Setup
+### Setup
 
-1. Go to the frontend folder:
+1. Go to backend folder:
+```bash
+cd backend
+```
+
+2. Create virtual environment:
+```bash
+python -m venv venv
+```
+
+3. Activate virtual environment:
+- Mac/Linux: `source venv/bin/activate`
+- Windows: `venv\\Scripts\\activate`
+
+4. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+5. Run the API server:
+```bash
+python app.py
+```
+
+Backend runs on `http://localhost:5001`.
+
+## Frontend
+
+### Setup
+
+1. Open a new terminal and go to frontend folder:
 ```bash
 cd frontend
 ```
@@ -14,34 +44,33 @@ cd frontend
 npm install
 ```
 
-3. Run the dev server:
+3. Create env file from example:
+```bash
+cp .env.example .env
+```
+
+4. Ensure API base URL points to backend:
+```env
+VITE_API_BASE_URL=http://localhost:5001
+```
+
+5. Run the frontend:
 ```bash
 npm run dev
 ```
 
-Open the app at http://localhost:5173
+Frontend runs on `http://localhost:5173`.
 
-# Backend
+## Startup Order
 
-## Setup
+1. Start backend first (`python app.py`).
+2. Start frontend second (`npm run dev`).
 
-1. Create virtual environment:
-```bash
-python -m venv venv
+## Auth / API Notes
+
+- Most backend routes are protected and require:
+```http
+Authorization: Bearer <idToken>
 ```
-
-2. Activate virtual environment:
-- Mac/Linux: `source venv/bin/activate`
-- Windows: `venv\Scripts\activate`
-
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-4. Run the app:
-```bash
-python app.py
-```
-
-API runs on http://localhost:5000
+- Public routes include auth signup/login/refresh plus health/info routes.
+- Frontend now uses backend auth endpoints (`/api/auth/*`) and automatically retries once after token refresh on 401 responses.
