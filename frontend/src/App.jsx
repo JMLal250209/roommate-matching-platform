@@ -7,16 +7,20 @@ import CreateProfile from "./pages/CreateProfile.jsx";
 import ProfileHousingRequirements from "./pages/ProfileHousingRequirements.jsx";
 import ProfileAboutYou from "./pages/ProfileAboutYou.jsx";
 import ProfileView from "./pages/ProfileView.jsx";
-import LandingPage from "./LandingPage.jsx";
 import PropertyDetails from "./pages/details.jsx";
 import GreenPage from "./pages/Green.jsx";
 import FellowAnimalProfiles from "./pages/FellowAnimalProfiles.jsx";
 import FellowAnimalProfileView from "./pages/FellowAnimalProfileView.jsx";
 
 export default function App() {
+  const { isAuthenticated } = useAuth();
+
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/signin" replace />} />
+      <Route
+        path="/"
+        element={<Navigate to={isAuthenticated ? "/create-profile" : "/signin"} replace />}
+      />
       <Route path="/signin" element={<SignIn />} />
       <Route path="/register" element={<Register />} />
       <Route path="/create-profile" element={<CreateProfile />} />

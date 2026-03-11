@@ -1,5 +1,6 @@
-from flask import Flask, jsonify, request, Blueprint
+from flask import Flask, jsonify, request, Blueprint, send_from_directory
 import decimal
+import os
 from flask_cors import CORS
 from flask.json.provider import DefaultJSONProvider
 
@@ -13,6 +14,10 @@ from routes.interests import interests_bp
 from routes.matching import matching_bp
 from routes.info import info_bp
 from routes.auth import auth_bp
+
+HOUSES_PHOTOS_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "HousesPhotos")
+)
 
 # ---------------- Decimal-safe JSON Provider ----------------
 class DecimalSafeJSONProvider(DefaultJSONProvider):
@@ -76,6 +81,8 @@ def create_app(testing=False):
             return True
         if path.startswith('/api/animals/') and path.endswith('/compatible'):
             return True
+        if path.startswith('/api/images/'):
+            return True
         return False
 
     @app.before_request
@@ -117,6 +124,12 @@ def create_app(testing=False):
                 "info": "/api/animals",
             },
         }), 200
+
+    @app.route("/api/images/<path:filename>", methods=["GET"])
+    def serve_house_image(filename):
+        # Prevent path traversal outside HousesPhotos directory.
+        safe_filename = os.path.basename(filename)
+        return send_from_directory(HOUSES_PHOTOS_DIR, safe_filename)
 
     # ---------------- Create Tables (skip if testing) ----------------
     if not testing:

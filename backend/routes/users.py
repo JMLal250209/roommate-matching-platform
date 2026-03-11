@@ -58,6 +58,7 @@ def update_user(user_id):
         # Build update expression
         update_parts = []
         attr_values = {}
+        attr_names = {}
         
         # Handle profile update (requires archetype recalculation)
         if 'profile' in data:
@@ -74,13 +75,18 @@ def update_user(user_id):
         
         for field in allowed_fields:
             if field in data:
-                update_parts.append(f"{field} = :{field}")
-                attr_values[f":{field}"] = data[field]
+                # DynamoDB reserves words like "name", so always alias field names.
+                name_key = f"#field_{field}"
+                value_key = f":{field}"
+                update_parts.append(f"{name_key} = {value_key}")
+                attr_names[name_key] = field
+                attr_values[value_key] = data[field]
         
         if update_parts:
             table.update_item(
                 Key={"userId": user_id},
                 UpdateExpression="SET " + ", ".join(update_parts),
+                ExpressionAttributeNames=attr_names,
                 ExpressionAttributeValues=attr_values
             )
 
