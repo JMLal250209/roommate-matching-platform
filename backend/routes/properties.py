@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from urllib.parse import quote
 from datetime import datetime, timedelta
 from db import get_properties_table, create_property
+from typing import Optional
 
 properties_bp = Blueprint("properties", __name__)
 
@@ -46,7 +47,7 @@ import re
 _DUBLIN_AREA_RE = re.compile(r"Dublin\s+(\d+)\b")
 
 
-def _extract_dublin_area(title: str) -> str | None:
+def _extract_dublin_area(title: str) -> Optional[str]:
     """
     Pull the first 'Dublin N' token out of a property title.
     Returns e.g. 'Dublin 14' or None if not found.
