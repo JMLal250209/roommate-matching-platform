@@ -13,9 +13,11 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <ProfileDraftProvider>
-          <App />
-        </ProfileDraftProvider>
+        <ProfileProvider>
+          <ProfileDraftProvider>
+            <App />
+          </ProfileDraftProvider>
+        </ProfileProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>
