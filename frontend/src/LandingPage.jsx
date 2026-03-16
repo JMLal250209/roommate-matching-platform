@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext.jsx";
+import { useProfile } from "./context/ProfileContext.jsx";
 import { API_BASE_URL } from "./lib/api";
 import {
   getUserMatchForProperty,
@@ -8,6 +9,7 @@ import {
   listProperties,
   registerPropertyInterest,
 } from "./lib/propertiesApi";
+import { assignAnimal, getAnimalPluralLabel } from "./utils/animalArchetypes.js";
 
 const PER_PAGE = 6;
 const FALLBACK_IMAGE = `${API_BASE_URL}/api/images/house_1.jpeg`;
@@ -67,28 +69,41 @@ function getMatchSummary(matchInfo) {
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const { profile } = useProfile();
+
   const [page, setPage] = useState(0);
   const [showHomesMenu, setShowHomesMenu] = useState(false);
   const homesMenuRef = useRef(null);
-  const [interests, setInterests] = useState(() => {
-    const saved = localStorage.getItem('house_interests');
-    return saved ? JSON.parse(saved) : {};
-  });
 
-  const totalPages = Math.ceil(HOUSES.length / PER_PAGE);
+  const [properties, setProperties] = useState([]);
+  const [interests, setInterests] = useState({});
+  const [matchByProperty, setMatchByProperty] = useState({});
+  const [submitting, setSubmitting] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
 
-  const visibleHouses = useMemo(() => {
-    const start = page * PER_PAGE;
-    return HOUSES.slice(start, start + PER_PAGE);
-  }, [page]);
+  const currentAnimal = useMemo(() => profile.animalArchetype || assignAnimal(profile), [profile]);
+  const fellowAnimalLabel = useMemo(
+    () => getAnimalPluralLabel(currentAnimal),
+    [currentAnimal]
+  );
 
-  const currentAnimal = useMemo(() => {
-    const candidate = profile.animalArchetype || assignAnimal(profile);
-    return ANIMAL_PROFILES[candidate] ? candidate : "panda";
-  }, [profile]);
+  useEffect(() => {
+    if (!showHomesMenu) return undefined;
 
-  const fellowAnimalLabel = useMemo(() => getAnimalLabel(currentAnimal), [currentAnimal]);
+    function onPointerDown(event) {
+      if (homesMenuRef.current && !homesMenuRef.current.contains(event.target)) {
+        setShowHomesMenu(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [showHomesMenu]);
 
   useEffect(() => {
     let isMounted = true;
@@ -135,9 +150,7 @@ export default function LandingPage() {
             })
           );
 
-          nextMatches = Object.fromEntries(
-            matchEntries.filter(([, data]) => Boolean(data))
-          );
+          nextMatches = Object.fromEntries(matchEntries.filter(([, data]) => Boolean(data)));
         }
 
         if (!isMounted) return;
@@ -180,7 +193,10 @@ export default function LandingPage() {
     setSubmitting((prev) => ({ ...prev, [property.propertyId]: true }));
 
     try {
-      await registerPropertyInterest(property.propertyId, `${toCurrency(property.rent_per_month)}/month`);
+      await registerPropertyInterest(
+        property.propertyId,
+        `${toCurrency(property.rent_per_month)}/month`
+      );
       setInterests((prev) => ({ ...prev, [property.propertyId]: true }));
 
       if (user?.userId) {
@@ -209,7 +225,7 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 px-6 py-8 md:px-10 md:py-10">
+    <div className="min-h-screen bg-slate-100 px-6 py-8 text-slate-900 md:px-10 md:py-10">
       <div className="mx-auto w-full max-w-7xl">
         <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -221,13 +237,15 @@ export default function LandingPage() {
                 className="inline-flex items-center gap-3 rounded-xl border border-emerald-300 bg-emerald-600 px-5 py-3 text-xl font-bold text-white shadow-md transition hover:bg-emerald-500"
               >
                 <span>Student Homes</span>
-                <span className={`text-lg transition-transform ${showHomesMenu ? "rotate-180" : ""}`}>▾</span>
+                <span className={`text-lg transition-transform ${showHomesMenu ? "rotate-180" : ""}`}>
+                  ▾
+                </span>
               </button>
               <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">
                 Click to open views
               </p>
 
-              {showHomesMenu && (
+              {showHomesMenu ? (
                 <div className="absolute left-0 top-full z-20 mt-2 w-64 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg">
                   <button
                     type="button"
@@ -247,9 +265,9 @@ export default function LandingPage() {
                     Other {fellowAnimalLabel}
                   </button>
                 </div>
-              )}
+              ) : null}
             </div>
-            <p className="mt-1 text-slate-600">Showing 6 houses per page</p>
+            <p className="mt-1 text-slate-600">Showing {PER_PAGE} houses per page</p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -258,7 +276,7 @@ export default function LandingPage() {
               onClick={() => navigate("/green")}
               className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
             >
-              🌿 Green Computing
+              Green Computing
             </button>
             <button
               type="button"
@@ -290,7 +308,9 @@ export default function LandingPage() {
         </div>
 
         {loading ? (
-          <div className="rounded-lg border border-slate-200 bg-white p-4 text-slate-700">Loading properties...</div>
+          <div className="rounded-lg border border-slate-200 bg-white p-4 text-slate-700">
+            Loading properties...
+          </div>
         ) : null}
 
         {error ? (
@@ -347,11 +367,7 @@ export default function LandingPage() {
 
                   <button
                     type="button"
-                    onClick={() =>
-                      navigate(`/properties/${encodeURIComponent(propertyId)}`, {
-                        state: { house: property },
-                      })
-                    }
+                    onClick={() => navigate("/house1/details", { state: { house: property } })}
                     className="w-full rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                   >
                     View Details
@@ -363,11 +379,7 @@ export default function LandingPage() {
                     disabled={interested || isSubmitting}
                     className="mt-1 w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
                   >
-                    {interested
-                      ? "Interest Registered"
-                      : isSubmitting
-                        ? "Registering..."
-                        : "Register Interest"}
+                    {interested ? "Interest Registered" : isSubmitting ? "Registering..." : "Register Interest"}
                   </button>
 
                   {interested && matchSummary ? (
