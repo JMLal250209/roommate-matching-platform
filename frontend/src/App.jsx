@@ -11,6 +11,8 @@ import PropertyDetails from "./pages/details.jsx";
 import GreenPage from "./pages/Green.jsx";
 import FellowAnimalProfiles from "./pages/FellowAnimalProfiles.jsx";
 import FellowAnimalProfileView from "./pages/FellowAnimalProfileView.jsx";
+import LandingPage from "./LandingPage.jsx";
+import { useAuth } from "./context/AuthContext.jsx";
 
 export default function App() {
   const { isAuthenticated } = useAuth();
