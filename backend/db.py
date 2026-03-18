@@ -271,25 +271,31 @@ def get_interests_table():
 
 
 def register_property_interest(interests_table, user_id, property_id, budget=None):
-    """
-    Register a user's interest in a property (idempotent).
-
-    Args:
-        interests_table: DynamoDB interests table
-        user_id: User ID
-        property_id: Property ID
-        budget: Optional per-property budget string (e.g. "€800/month")
-
-    Returns:
-        interest_id: Generated or existing interest ID
-    """
     existing = get_user_interests(interests_table, user_id)
     for interest in existing:
         if interest.get("propertyId") == property_id:
-            return interest.get("interestId")
+            status = interest.get("status")
 
+            # Active interest already exists — return it as-is
+            if status in ("pending", "matched"):
+                return interest.get("interestId")
+
+            # Was withdrawn — reset it to pending so it's active again
+            if status == "withdrawn":
+                interest_id = interest.get("interestId")
+                interests_table.update_item(
+                    Key={"interestId": interest_id},
+                    UpdateExpression="SET #s = :status, registeredAt = :rat",
+                    ExpressionAttributeNames={"#s": "status"},
+                    ExpressionAttributeValues={
+                        ":status": "pending",
+                        ":rat": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
+                return interest_id
+
+    # No existing record — create a fresh one
     interest_id = str(uuid.uuid4())
-
     interest_item = {
         "interestId": interest_id,
         "userId": user_id,
@@ -297,7 +303,6 @@ def register_property_interest(interests_table, user_id, property_id, budget=Non
         "registeredAt": datetime.now(timezone.utc).isoformat(),
         "status": "pending",
     }
-
     if budget:
         interest_item["budget"] = budget
 
@@ -377,6 +382,13 @@ def update_interest_status(interests_table, interest_id, status, match_group_id=
     )
     return _deserialize(resp.get("Attributes"))
 
+def mark_interest_seen(interests_table, interest_id: str, seen_at: str):
+    """Sets seenAt timestamp. Called when user opens matches tab."""
+    interests_table.update_item(
+        Key={"interestId": interest_id},
+        UpdateExpression="SET seenAt = :seen",
+        ExpressionAttributeValues={":seen": seen_at},
+    )
 
 def withdraw_interest(interests_table, interest_id):
     """Withdraw (cancel) an interest registration"""

@@ -8,12 +8,15 @@ from db import (
     get_user_interests,
     get_user,
     get_property,
+    update_interest_status,
+    mark_interest_seen,
 )
 from matching_algorithm import (
     assign_animal_archetype,
     find_matches_for_property,
     check_property_match_complete,
 )
+from .matching import _mark_group_as_matched
 import uuid
 from db import update_interest_status
 
@@ -39,18 +42,6 @@ def _ensure_archetype(users_table, user: dict) -> dict:
     )
     user["animal_archetype"] = archetype
     return user
-
-
-def _mark_group_as_matched(interests_table, property_id, matched_user_ids):
-    group_id = str(uuid.uuid4())
-    pending  = get_property_interests(interests_table, property_id, status="pending")
-    pending_by_user = {i["userId"]: i for i in pending}
-    updated = 0
-    for uid in matched_user_ids:
-        if uid in pending_by_user:
-            update_interest_status(interests_table, pending_by_user[uid]["interestId"], "matched", group_id)
-            updated += 1
-    return {"updated_count": updated, "group_id": group_id}
 
 
 @interests_bp.route('/api/interests/register', methods=['POST'])
@@ -125,7 +116,7 @@ def register_interest():
 
         # Group-completion check
         all_users    = [user] + other_users
-        is_complete, best_group = check_property_match_complete(all_users, required_roommates)
+        is_complete, best_group = check_property_match_complete(all_users, required_roommates, min_threshold=60.0)
         group_match_payload = None
         if is_complete and best_group:
             result = _mark_group_as_matched(interests_table, property_id, [u["userId"] for u in best_group])
@@ -176,5 +167,31 @@ def get_interests_for_user(user_id):
         interests_table = get_interests_table()
         interests = get_user_interests(interests_table, user_id)
         return jsonify({"success": True, "data": interests, "count": len(interests)}), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+@interests_bp.route('/api/interests/withdraw', methods=['POST'])
+def withdraw_interest():
+    data = request.get_json()
+    if not data or 'propertyId' not in data:
+        return jsonify({"success": False, "error": "Missing propertyId"}), 400
+
+    user_id     = request.user['userId']
+    property_id = data['propertyId']
+
+    try:
+        interests_table = get_interests_table()
+        user_interests  = get_user_interests(interests_table, user_id)
+        interest        = next((i for i in user_interests if i["propertyId"] == property_id), None)
+
+        if not interest:
+            return jsonify({"success": False, "error": "No interest found for this property"}), 404
+
+        if interest.get("status") == "matched":
+            return jsonify({"success": False, "error": "Cannot withdraw from a confirmed match"}), 400
+
+        update_interest_status(interests_table, interest["interestId"], "withdrawn")
+        return jsonify({"success": True, "data": {"message": "Interest withdrawn"}}), 200
+
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

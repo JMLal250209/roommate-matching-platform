@@ -18,3 +18,13 @@ export async function me() {
   const payload = await request("GET", "/api/auth/me", { auth: true });
   return payload?.data || null;
 }
+
+export async function getMatches(userId) {
+  const payload = await request("GET", `/api/user/${userId}/matches`, { auth: true });
+  return payload?.data || null;
+}
+
+export async function markMatchesSeen(userId) {
+  const payload = await request("PATCH", `/api/user/${userId}/matches/seen`, { auth: true });
+  return payload?.data || null;
+}
