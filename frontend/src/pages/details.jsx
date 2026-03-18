@@ -6,6 +6,7 @@ import {
   getProperty,
   getUserMatchForProperty,
   registerPropertyInterest,
+  withdrawPropertyInterest,  // add this
 } from '../lib/propertiesApi';
 
 const FALLBACK_IMAGE = `${API_BASE_URL}/api/images/house_1.jpeg`;
@@ -100,7 +101,6 @@ function normalizeProperty(rawProperty, fallback = {}) {
   };
 }
 
-// ── Fetch potential matches (no prior interest needed) ─────────────────────
 async function getPotentialMatches(propertyId) {
   const res = await fetch(`${API_BASE_URL}/api/properties/${propertyId}/potential-matches`, {
     credentials: "include",
@@ -110,7 +110,6 @@ async function getPotentialMatches(propertyId) {
   return json.data;
 }
 
-// ── Score breakdown bar ────────────────────────────────────────────────────
 function ScoreBar({ label, score, maxScore }) {
   const pct = Math.round((score / maxScore) * 100);
   const colour = pct >= 80 ? "#059669" : pct >= 50 ? "#f59e0b" : "#ef4444";
@@ -127,7 +126,6 @@ function ScoreBar({ label, score, maxScore }) {
   );
 }
 
-// ── Single match card ──────────────────────────────────────────────────────
 function MatchCard({ match, index, isExpanded, onToggle }) {
   const score = match.compatibility_score;
   const breakdown = match.scoreBreakdown || {};
@@ -147,21 +145,13 @@ function MatchCard({ match, index, isExpanded, onToggle }) {
       overflow: "hidden",
       transition: "all 0.2s ease",
     }}>
-      {/* Collapsed row */}
       <div
         onClick={onToggle}
-        style={{
-          padding: "18px 20px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          cursor: "pointer",
-        }}
+        style={{ padding: "18px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
         onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
         onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
       >
         <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-          {/* Avatar */}
           <div style={{
             width: 48, height: 48, borderRadius: "50%", flexShrink: 0,
             background: `linear-gradient(135deg, ${g1} 0%, ${g2} 100%)`,
@@ -177,58 +167,33 @@ function MatchCard({ match, index, isExpanded, onToggle }) {
             </div>
           </div>
         </div>
-
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* Animal pill */}
-          <div style={{
-            background: "rgba(255,255,255,0.25)", padding: "6px 14px",
-            borderRadius: 20, fontSize: 13, fontWeight: 600,
-          }}>
+          <div style={{ background: "rgba(255,255,255,0.25)", padding: "6px 14px", borderRadius: 20, fontSize: 13, fontWeight: 600 }}>
             {formatAnimalTag(match.animal_archetype)}
           </div>
-          {/* Score badge */}
-          <div style={{
-            background: scoreColour, color: "white", borderRadius: 20,
-            padding: "6px 14px", fontSize: 14, fontWeight: 700, minWidth: 52, textAlign: "center",
-          }}>
+          <div style={{ background: scoreColour, color: "white", borderRadius: 20, padding: "6px 14px", fontSize: 14, fontWeight: 700, minWidth: 52, textAlign: "center" }}>
             {score}%
           </div>
-          {/* Chevron */}
           <span style={{ fontSize: 12, opacity: 0.7, transition: "transform 0.2s", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
         </div>
       </div>
 
-      {/* Expanded breakdown */}
       {isExpanded && (
-        <div style={{
-          padding: "0 20px 20px",
-          borderTop: "1px solid rgba(255,255,255,0.15)",
-          paddingTop: 16,
-        }}>
-          {/* Shared interests */}
+        <div style={{ padding: "0 20px 20px", borderTop: "1px solid rgba(255,255,255,0.15)", paddingTop: 16 }}>
           {Array.isArray(match.interests) && match.interests.length > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, opacity: 0.7, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>
-                Shared interests
-              </div>
+              <div style={{ fontSize: 12, opacity: 0.7, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>Shared interests</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {match.interests.map((interest) => (
-                  <span key={interest} style={{
-                    background: "rgba(255,255,255,0.2)", padding: "4px 10px",
-                    borderRadius: 20, fontSize: 12, fontWeight: 500,
-                  }}>
+                  <span key={interest} style={{ background: "rgba(255,255,255,0.2)", padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 500 }}>
                     {interest}
                   </span>
                 ))}
               </div>
             </div>
           )}
-
-          {/* Score bars */}
           <div style={{ background: "rgba(0,0,0,0.15)", borderRadius: 10, padding: "14px 16px" }}>
-            <div style={{ fontSize: 12, opacity: 0.7, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 12 }}>
-              Compatibility breakdown
-            </div>
+            <div style={{ fontSize: 12, opacity: 0.7, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 12 }}>Compatibility breakdown</div>
             {Object.entries(SCORE_LABELS).map(([key, label]) =>
               breakdown[key] != null ? (
                 <ScoreBar key={key} label={label} score={breakdown[key]} maxScore={SCORE_MAX[key]} />
@@ -241,7 +206,6 @@ function MatchCard({ match, index, isExpanded, onToggle }) {
   );
 }
 
-// ── Main component ─────────────────────────────────────────────────────────
 export default function PropertyDetails() {
   const navigate  = useNavigate();
   const { user, signOut } = useAuth();
@@ -252,8 +216,8 @@ export default function PropertyDetails() {
 
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [property, setProperty]         = useState(() => normalizeProperty(house || {}));
-  const [potentialData, setPotentialData] = useState(null);   // before interest
-  const [matchData, setMatchData]         = useState(null);   // after interest
+  const [potentialData, setPotentialData] = useState(null);
+  const [matchData, setMatchData]         = useState(null);
   const [expandedMatch, setExpandedMatch] = useState(null);
   const [loadingProperty, setLoadingProperty] = useState(Boolean(resolvedPropertyId));
   const [loadingMatches, setLoadingMatches]   = useState(false);
@@ -261,6 +225,7 @@ export default function PropertyDetails() {
   const [actionError, setActionError] = useState("");
   const [submittingInterest, setSubmittingInterest] = useState(false);
   const [isInterested, setIsInterested] = useState(false);
+  const [isMatched, setIsMatched]       = useState(false);  // true once a group is confirmed
 
   // Load property details
   useEffect(() => {
@@ -281,22 +246,21 @@ export default function PropertyDetails() {
     return () => { mounted = false; };
   }, [resolvedPropertyId, signOut]);
 
-  // Load potential matches (shown before registering interest)
+  // Load matches or potential matches
   useEffect(() => {
     let mounted = true;
     if (!user?.userId || !resolvedPropertyId) return;
     setLoadingMatches(true);
 
-    // Try confirmed matches first (user may have already registered)
     getUserMatchForProperty(user.userId, resolvedPropertyId)
       .then((data) => {
         if (!mounted) return;
         setMatchData(data);
         setIsInterested(true);
+        setIsMatched(data?.interestStatus === "matched");
         setLoadingMatches(false);
       })
       .catch(() => {
-        // Not registered yet — load potential matches instead
         if (!mounted) return;
         getPotentialMatches(resolvedPropertyId)
           .then((data) => { if (mounted) setPotentialData(data); })
@@ -307,7 +271,6 @@ export default function PropertyDetails() {
     return () => { mounted = false; };
   }, [resolvedPropertyId, user?.userId, signOut]);
 
-  // Decide which match list to render
   const activeMatches = isInterested
     ? (matchData?.matches?.compatible || []).map((m) => ({
         name:                m.name,
@@ -331,6 +294,8 @@ export default function PropertyDetails() {
   const matchSectionTitle = isInterested ? "Your Roommate Matches" : "People Already Interested";
   const matchSectionSubtitle = loadingMatches
     ? "Checking compatibility..."
+    : isMatched
+    ? "A compatible group has been formed for this property! Check your Matches tab."
     : isInterested
       ? `You have ${compatibleCount} compatible match${compatibleCount !== 1 ? "es" : ""} for this property.`
       : totalInterested === 0
@@ -347,11 +312,31 @@ export default function PropertyDetails() {
       if (user?.userId) {
         const refreshed = await getUserMatchForProperty(user.userId, resolvedPropertyId);
         setMatchData(refreshed);
+        setIsMatched(refreshed?.interestStatus === "matched");
         setPotentialData(null);
       }
     } catch (err) {
       if (err?.code === "SESSION_EXPIRED") { signOut("Session expired."); return; }
       setActionError(err?.message || "Unable to register interest.");
+    } finally {
+      setSubmittingInterest(false);
+    }
+  };
+
+  const handleWithdrawInterest = async () => {
+    if (!resolvedPropertyId || !isInterested || submittingInterest || isMatched) return;
+    setActionError("");
+    setSubmittingInterest(true);
+    try {
+      await withdrawPropertyInterest(resolvedPropertyId);
+      setIsInterested(false);
+      setMatchData(null);
+      // reload potential matches so the section repopulates
+      const potential = await getPotentialMatches(resolvedPropertyId);
+      setPotentialData(potential);
+    } catch (err) {
+      if (err?.code === "SESSION_EXPIRED") { signOut("Session expired."); return; }
+      setActionError(err?.message || "Unable to withdraw interest.");
     } finally {
       setSubmittingInterest(false);
     }
@@ -375,9 +360,32 @@ export default function PropertyDetails() {
     ? new Date(property.available_from).toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "numeric" })
     : "TBA";
 
+  // Booking card button state
+  const buttonLabel = submittingInterest
+    ? "..."
+    : isMatched
+    ? "Matched ✓"
+    : isInterested
+    ? "Withdraw Interest"
+    : "Register Interest";
+
+  const buttonStyle = {
+    width: "100%",
+    padding: 18, borderRadius: 12, fontSize: 17, fontWeight: 700,
+    cursor: isMatched || submittingInterest ? "not-allowed" : "pointer",
+    transition: "all 0.3s ease",
+    opacity: submittingInterest ? 0.8 : 1,
+    border: "none",
+    ...(isMatched
+      ? { background: "#dcfce7", color: "#065f46", border: "2px solid #059669" }
+      : isInterested
+      ? { background: "#ef4444", color: "white" }
+      : { background: "linear-gradient(135deg, #059669 0%, #047857 100%)", color: "white" }),
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: "'Outfit', -apple-system, sans-serif" }}>
-      {/* ── Header ── */}
+      {/* Header */}
       <div style={{ background: "white", borderBottom: "1px solid #e2e8f0", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
         <div style={{ maxWidth: 1400, margin: "0 auto", padding: "20px 40px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h1 style={{ fontSize: 28, fontWeight: 700, color: "#0f172a", margin: 0, letterSpacing: "-0.5px" }}>Amazon SHRMP</h1>
@@ -387,7 +395,7 @@ export default function PropertyDetails() {
         </div>
       </div>
 
-      {/* ── Inline alerts ── */}
+      {/* Alerts */}
       {(loadingProperty || loadError || actionError) && (
         <div style={{ maxWidth: 1400, margin: "16px auto 0", padding: "0 40px", display: "flex", flexDirection: "column", gap: 10 }}>
           {loadingProperty && <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 16px", fontSize: 14, color: "#475569" }}>Loading property details...</div>}
@@ -396,7 +404,7 @@ export default function PropertyDetails() {
         </div>
       )}
 
-      {/* ── Hero image ── */}
+      {/* Hero */}
       <div style={{ background: "white", boxShadow: "0 2px 20px rgba(0,0,0,0.08)" }}>
         <div style={{ maxWidth: 1400, margin: "0 auto", padding: "40px" }}>
           <button onClick={() => navigate("/landing")} style={{ background: "none", border: "none", display: "flex", alignItems: "center", gap: 8, fontSize: 15, color: "#475569", cursor: "pointer", marginBottom: 30, padding: "8px 16px 8px 8px", borderRadius: 20, transition: "all 0.2s ease" }}
@@ -410,10 +418,10 @@ export default function PropertyDetails() {
         </div>
       </div>
 
-      {/* ── Content grid ── */}
+      {/* Content grid */}
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "40px", display: "grid", gridTemplateColumns: "1fr 400px", gap: 40 }}>
 
-        {/* ── Left column ── */}
+        {/* Left column */}
         <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
 
           {/* Property header */}
@@ -451,21 +459,26 @@ export default function PropertyDetails() {
             </div>
           </div>
 
-          {/* ── Matches section ── */}
+          {/* Matches section */}
           <div style={{
             background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
             padding: 40, borderRadius: 16, color: "white",
             boxShadow: "0 8px 24px rgba(5,150,105,0.3)", position: "relative", overflow: "hidden",
           }}>
-            {/* Decorative blur */}
             <div style={{ position: "absolute", top: -50, right: -50, width: 200, height: 200, background: "rgba(255,255,255,0.1)", borderRadius: "50%", filter: "blur(40px)" }} />
-
             <div style={{ position: "relative", zIndex: 1 }}>
               <div style={{ marginBottom: 8 }}>
                 <h2 style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>{matchSectionTitle}</h2>
               </div>
 
-              {/* Badge row */}
+              {/* Matched banner */}
+              {isMatched && (
+                <div style={{ background: "rgba(255,255,255,0.25)", borderRadius: 12, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 10, fontWeight: 600 }}>
+                  <span style={{ fontSize: 22 }}>🎉</span>
+                  <span>A compatible group has been formed! Check your Matches tab.</span>
+                </div>
+              )}
+
               {totalInterested > 0 && (
                 <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
                   <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>
@@ -479,14 +492,11 @@ export default function PropertyDetails() {
 
               <p style={{ fontSize: 15, opacity: 0.95, marginBottom: 28, lineHeight: 1.6 }}>{matchSectionSubtitle}</p>
 
-              {/* Match cards */}
               {activeMatches.length > 0 ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {activeMatches.map((match, idx) => (
                     <MatchCard
-                      key={idx}
-                      match={match}
-                      index={idx}
+                      key={idx} match={match} index={idx}
                       isExpanded={expandedMatch === idx}
                       onToggle={() => setExpandedMatch(expandedMatch === idx ? null : idx)}
                     />
@@ -500,7 +510,6 @@ export default function PropertyDetails() {
                 </div>
               ) : null}
 
-              {/* CTA nudge when not yet interested */}
               {!isInterested && totalInterested > 0 && (
                 <div style={{ marginTop: 20, background: "rgba(255,255,255,0.15)", borderRadius: 12, padding: "16px 20px", fontSize: 14, display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 20 }}>💡</span>
@@ -547,7 +556,7 @@ export default function PropertyDetails() {
           </div>
         </div>
 
-        {/* ── Right column — booking card ── */}
+        {/* Right column — booking card */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <div style={{ background: "white", padding: 32, borderRadius: 16, boxShadow: "0 8px 24px rgba(0,0,0,0.1)", position: "sticky", top: 24 }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 24 }}>
@@ -561,7 +570,6 @@ export default function PropertyDetails() {
               <div style={{ fontSize: 18, fontWeight: 600, color: "#0f172a" }}>{availableFromLabel}</div>
             </div>
 
-            {/* Compatibility teaser in booking card */}
             {!isInterested && compatibleCount > 0 && (
               <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 10, padding: "14px 16px", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 22 }}>🤝</span>
@@ -573,20 +581,18 @@ export default function PropertyDetails() {
             )}
 
             <button
-              onClick={handleRegisterInterest}
-              disabled={isInterested || submittingInterest}
-              style={{
-                width: "100%",
-                background: isInterested ? "#dcfce7" : "linear-gradient(135deg, #059669 0%, #047857 100%)",
-                color: isInterested ? "#065f46" : "white",
-                border: isInterested ? "2px solid #059669" : "none",
-                padding: 18, borderRadius: 12, fontSize: 17, fontWeight: 700,
-                cursor: isInterested || submittingInterest ? "not-allowed" : "pointer",
-                transition: "all 0.3s ease",
-                opacity: submittingInterest ? 0.8 : 1,
-              }}>
-              {isInterested ? "Interest Registered ✓" : submittingInterest ? "Registering..." : "Register Interest"}
+              onClick={isInterested && !isMatched ? handleWithdrawInterest : handleRegisterInterest}
+              disabled={isMatched || submittingInterest}
+              style={buttonStyle}
+            >
+              {buttonLabel}
             </button>
+
+            {isInterested && !isMatched && (
+              <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", marginTop: 10 }}>
+                You can withdraw until a group is confirmed.
+              </p>
+            )}
           </div>
 
           {/* Landlord */}

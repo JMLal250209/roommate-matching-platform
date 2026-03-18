@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext.jsx";
 import { useProfile } from "./context/ProfileContext.jsx";
 import { API_BASE_URL } from "./lib/api";
+import { useMatchBadge } from "./lib/useMatchBadge";
 import {
   getUserMatchForProperty,
   getUserPropertyInterests,
   listProperties,
   registerPropertyInterest,
+  withdrawPropertyInterest,
 } from "./lib/propertiesApi";
 import { assignAnimal, getAnimalPluralLabel } from "./utils/animalArchetypes.js";
 
@@ -26,42 +28,30 @@ function toCurrency(value) {
 
 function getImageUrl(property) {
   const imageCandidates = [];
-
   if (Array.isArray(property?.image_urls)) {
     imageCandidates.push(...property.image_urls);
   }
   if (typeof property?.image === "string") {
     imageCandidates.push(property.image);
   }
-
   const firstImage = imageCandidates.find((image) => typeof image === "string" && image.trim());
   if (!firstImage) return FALLBACK_IMAGE;
-
-  if (/^https?:\/\//.test(firstImage)) {
-    return firstImage;
-  }
-
+  if (/^https?:\/\//.test(firstImage)) return firstImage;
   const filename = firstImage.split("/").pop();
-  if (!filename) {
-    return FALLBACK_IMAGE;
-  }
-
+  if (!filename) return FALLBACK_IMAGE;
   return `${API_BASE_URL}/api/images/${encodeURIComponent(filename)}`;
 }
 
 function getMatchSummary(matchInfo) {
   if (!matchInfo) return "";
-
   if (matchInfo.interestStatus === "matched") {
     return "Matched group formed for this property.";
   }
-
   const totalInterested = Number(matchInfo.totalInterested) || 0;
   const requiredRoommates = Number(matchInfo.requiredRoommates) || 0;
   if (totalInterested < requiredRoommates) {
     return `Waiting for more students (${totalInterested}/${requiredRoommates} interested).`;
   }
-
   const otherInterested = Math.max(totalInterested - 1, 0);
   const compatibleCount = Number(matchInfo.compatibleCount) || 0;
   return `${compatibleCount} compatible out of ${otherInterested} other interested students.`;
@@ -71,6 +61,7 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
+  const { unseenCount } = useMatchBadge();
 
   const [page, setPage] = useState(0);
   const [showHomesMenu, setShowHomesMenu] = useState(false);
@@ -85,24 +76,17 @@ export default function LandingPage() {
   const [actionError, setActionError] = useState("");
 
   const currentAnimal = useMemo(() => profile.animalArchetype || assignAnimal(profile), [profile]);
-  const fellowAnimalLabel = useMemo(
-    () => getAnimalPluralLabel(currentAnimal),
-    [currentAnimal]
-  );
+  const fellowAnimalLabel = useMemo(() => getAnimalPluralLabel(currentAnimal), [currentAnimal]);
 
   useEffect(() => {
     if (!showHomesMenu) return undefined;
-
     function onPointerDown(event) {
       if (homesMenuRef.current && !homesMenuRef.current.contains(event.target)) {
         setShowHomesMenu(false);
       }
     }
-
     document.addEventListener("pointerdown", onPointerDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-    };
+    return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [showHomesMenu]);
 
   useEffect(() => {
@@ -111,7 +95,6 @@ export default function LandingPage() {
     async function loadData() {
       setLoading(true);
       setError("");
-
       try {
         const [propertyRows, interestRows] = await Promise.all([
           listProperties(),
@@ -124,9 +107,7 @@ export default function LandingPage() {
 
         const interestedMap = {};
         for (const item of interestRows || []) {
-          if (item?.propertyId) {
-            interestedMap[item.propertyId] = true;
-          }
+          if (item?.propertyId) interestedMap[item.propertyId] = true;
         }
         setInterests(interestedMap);
 
@@ -142,14 +123,11 @@ export default function LandingPage() {
                 const matchData = await getUserMatchForProperty(user.userId, propertyId);
                 return [propertyId, matchData];
               } catch (err) {
-                if (err?.code === "SESSION_EXPIRED") {
-                  throw err;
-                }
+                if (err?.code === "SESSION_EXPIRED") throw err;
                 return [propertyId, null];
               }
             })
           );
-
           nextMatches = Object.fromEntries(matchEntries.filter(([, data]) => Boolean(data)));
         }
 
@@ -157,24 +135,18 @@ export default function LandingPage() {
         setMatchByProperty(nextMatches);
       } catch (err) {
         if (!isMounted) return;
-
         if (err?.code === "SESSION_EXPIRED") {
           signOut("Session expired. Please sign in again.");
           return;
         }
-
         setError(err?.message || "Failed to load properties.");
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        if (isMounted) setLoading(false);
       }
     }
 
     loadData();
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [signOut, user?.userId]);
 
   const totalPages = Math.max(1, Math.ceil(properties.length / PER_PAGE));
@@ -191,14 +163,12 @@ export default function LandingPage() {
   async function handleRegisterInterest(property) {
     setActionError("");
     setSubmitting((prev) => ({ ...prev, [property.propertyId]: true }));
-
     try {
       await registerPropertyInterest(
         property.propertyId,
         `${toCurrency(property.rent_per_month)}/month`
       );
       setInterests((prev) => ({ ...prev, [property.propertyId]: true }));
-
       if (user?.userId) {
         try {
           const matchData = await getUserMatchForProperty(user.userId, property.propertyId);
@@ -217,8 +187,25 @@ export default function LandingPage() {
         signOut("Session expired. Please sign in again.");
         return;
       }
-
       setActionError(err?.message || "Unable to register interest.");
+    } finally {
+      setSubmitting((prev) => ({ ...prev, [property.propertyId]: false }));
+    }
+  }
+
+  async function handleWithdrawInterest(property) {
+    setActionError("");
+    setSubmitting((prev) => ({ ...prev, [property.propertyId]: true }));
+    try {
+      await withdrawPropertyInterest(property.propertyId);
+      setInterests((prev) => ({ ...prev, [property.propertyId]: false }));
+      setMatchByProperty((prev) => ({ ...prev, [property.propertyId]: null }));
+    } catch (err) {
+      if (err?.code === "SESSION_EXPIRED") {
+        signOut("Session expired. Please sign in again.");
+        return;
+      }
+      setActionError(err?.message || "Unable to withdraw interest.");
     } finally {
       setSubmitting((prev) => ({ ...prev, [property.propertyId]: false }));
     }
@@ -244,7 +231,6 @@ export default function LandingPage() {
               <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">
                 Click to open views
               </p>
-
               {showHomesMenu ? (
                 <div className="absolute left-0 top-full z-20 mt-2 w-64 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg">
                   <button
@@ -256,10 +242,7 @@ export default function LandingPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowHomesMenu(false);
-                      navigate("/landing/others");
-                    }}
+                    onClick={() => { setShowHomesMenu(false); navigate("/landing/others"); }}
                     className="block w-full px-4 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
                   >
                     Other {fellowAnimalLabel}
@@ -284,6 +267,18 @@ export default function LandingPage() {
               className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
             >
               View Profile
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/matches")}
+              className="relative rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
+            >
+              Matches
+              {unseenCount > 0 && (
+                <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-xs font-bold text-white">
+                  {unseenCount > 9 ? "9+" : unseenCount}
+                </span>
+              )}
             </button>
             <button
               type="button"
@@ -312,19 +307,16 @@ export default function LandingPage() {
             Loading properties...
           </div>
         ) : null}
-
         {error ? (
           <div className="mb-4 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700">
             {error}
           </div>
         ) : null}
-
         {actionError ? (
           <div className="mb-4 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700">
             {actionError}
           </div>
         ) : null}
-
         {!loading && !error && visibleProperties.length === 0 ? (
           <div className="rounded-lg border border-slate-200 bg-white p-4 text-slate-700">
             No properties are currently available.
@@ -337,6 +329,7 @@ export default function LandingPage() {
             const interested = Boolean(interests[propertyId]);
             const isSubmitting = Boolean(submitting[propertyId]);
             const matchSummary = getMatchSummary(matchByProperty[propertyId]);
+            const isMatched = matchByProperty[propertyId]?.interestStatus === "matched";
 
             return (
               <article
@@ -349,20 +342,12 @@ export default function LandingPage() {
                   className="h-44 w-full object-cover"
                   loading="lazy"
                 />
-
                 <div className="space-y-3 p-4">
                   <h2 className="text-lg font-semibold">{property.title}</h2>
-
                   <div className="text-sm text-slate-700">
-                    <p>
-                      <span className="font-medium">Rent:</span> {toCurrency(property.rent_per_month)} / month
-                    </p>
-                    <p>
-                      <span className="font-medium">Capacity:</span> {property.required_roommates} roommates
-                    </p>
-                    <p>
-                      <span className="font-medium">Location:</span> {property.city}
-                    </p>
+                    <p><span className="font-medium">Rent:</span> {toCurrency(property.rent_per_month)} / month</p>
+                    <p><span className="font-medium">Capacity:</span> {property.required_roommates} roommates</p>
+                    <p><span className="font-medium">Location:</span> {property.city}</p>
                   </div>
 
                   <button
@@ -373,13 +358,30 @@ export default function LandingPage() {
                     View Details
                   </button>
 
+                  {/* Register / Withdraw toggle — disabled once matched */}
                   <button
                     type="button"
-                    onClick={() => handleRegisterInterest(property)}
-                    disabled={interested || isSubmitting}
-                    className="mt-1 w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                    onClick={() =>
+                      interested
+                        ? handleWithdrawInterest(property)
+                        : handleRegisterInterest(property)
+                    }
+                    disabled={isSubmitting || isMatched}
+                    className={`mt-1 w-full rounded-md px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed ${
+                      isMatched
+                        ? "bg-emerald-300 cursor-not-allowed"
+                        : interested
+                        ? "bg-rose-500 hover:bg-rose-400 disabled:bg-rose-300"
+                        : "bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-300"
+                    }`}
                   >
-                    {interested ? "Interest Registered" : isSubmitting ? "Registering..." : "Register Interest"}
+                    {isSubmitting
+                      ? "..."
+                      : isMatched
+                      ? "Matched ✓"
+                      : interested
+                      ? "Withdraw Interest"
+                      : "Register Interest"}
                   </button>
 
                   {interested && matchSummary ? (
