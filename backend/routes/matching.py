@@ -1,5 +1,6 @@
 import uuid
 from flask import Blueprint, jsonify, request
+from datetime import datetime, timezone
 from db import (
     get_properties_table,
     get_users_table,
@@ -10,12 +11,14 @@ from db import (
     register_property_interest,
     get_user_interests,
     update_interest_status,
+    mark_interest_seen,          # <-- add this
 )
 from matching_algorithm import (
     check_property_match_complete,
     find_matches_for_property,
     calculate_compatibility_score,
     check_group_compatibility,
+    get_profile_field,
 )
 
 matching_bp = Blueprint("matching", __name__)
@@ -26,40 +29,29 @@ matching_bp = Blueprint("matching", __name__)
 # ---------------------------------------------------------------------------
 
 def _mark_group_as_matched(interests_table, property_id, matched_user_ids):
-    """
-    Transition every member of a matched group from 'pending' → 'matched'.
-
-    All members receive the same `matchedGroupId` so callers can easily
-    retrieve the full group later.  Records that are no longer 'pending'
-    (already matched, withdrawn, etc.) are silently skipped, which makes
-    this function safe to call multiple times without creating duplicate
-    writes.
-
-    Args:
-        interests_table : DynamoDB table resource for HousemateAppInterests
-        property_id     : The property these interests belong to
-        matched_user_ids: List of userIds that form the confirmed group
-
-    Returns:
-        dict with keys:
-            updated_count (int)  – records actually written
-            group_id      (str)  – shared matchedGroupId assigned to the group
-    """
+    
     group_id = str(uuid.uuid4())
+    all_interests = get_property_interests(interests_table, property_id)
+    interests_by_user = {i["userId"]: i for i in all_interests}
 
-    pending_interests = get_property_interests(
-        interests_table, property_id, status="pending"
-    )
-    pending_by_user = {i["userId"]: i for i in pending_interests}
-
-    updated_count = 0
-    for user_id in matched_user_ids:
-        if user_id in pending_by_user:
-            interest_id = pending_by_user[user_id]["interestId"]
-            update_interest_status(interests_table, interest_id, "matched", group_id)
-            updated_count += 1
-
-    return {"updated_count": updated_count, "group_id": group_id}
+    updated = 0
+    for uid in matched_user_ids:
+        if uid in interests_by_user:
+            interest = interests_by_user[uid]
+            update_interest_status(
+                interests_table,
+                interest["interestId"],
+                "matched",
+                group_id
+            )
+            # Reset seenAt so frontend badge works
+            interests_table.update_item(
+                Key={"interestId": interest["interestId"]},
+                UpdateExpression="SET seenAt = :n",
+                ExpressionAttributeValues={":n": None},
+            )
+            updated += 1
+    return {"updated_count": updated, "group_id": group_id}
 
 
 # ---------------------------------------------------------------------------
@@ -142,7 +134,7 @@ def register_interest(property_id):
         is_complete, best_group = check_property_match_complete(
             all_interested_users,
             required_roommates,
-            min_compatibility_threshold=60.0,
+            min_threshold=60.0,
         )
 
         group_match_payload = None
@@ -633,6 +625,123 @@ def get_potential_matches(property_id):
                     f"in this property are compatible with you."
                 ),
             },
+        }), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+
+
+@matching_bp.route('/api/user/<string:user_id>/matches', methods=['GET'])
+def get_user_matches(user_id):
+    """
+    Returns all confirmed matched groups for a user.
+    Also returns unseenCount — the number of matches where seenAt is null.
+    This drives the badge number on the matches tab.
+    """
+    if request.user['userId'] != user_id:
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    try:
+        users_table      = get_users_table()
+        properties_table = get_properties_table()
+        interests_table  = get_interests_table()
+
+        user = get_user(users_table, user_id)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+
+        # Get only matched interests for this user
+        all_user_interests = get_user_interests(interests_table, user_id)
+        matched_interests  = [i for i in all_user_interests if i.get("status") == "matched"]
+
+        matches_payload = []
+
+        for interest in matched_interests:
+            property_id   = interest["propertyId"]
+            group_id      = interest.get("matchedGroupId")
+            property_data = get_property(properties_table, property_id)
+            if not property_data:
+                continue
+
+            # Find all other users in the same matched group for this property
+            all_property_interests = get_property_interests(interests_table, property_id)
+            group_members = [
+                i for i in all_property_interests
+                if i.get("matchedGroupId") == group_id
+                and i["userId"] != user_id
+            ]
+
+            matched_profiles = []
+            for member in group_members:
+                member_user = get_user(users_table, member["userId"])
+                if member_user:
+                    score = calculate_compatibility_score(user, member_user)
+                    matched_profiles.append({
+                        "userId":          member_user["userId"],
+                        "name":            member_user.get("name"),
+                        "animalArchetype": member_user.get("animal_archetype"),
+                        "course":          get_profile_field(member_user, "course", ""),
+                        "year":            get_profile_field(member_user, "year", ""),
+                        "compatibilityScore": score,
+                    })
+
+            matches_payload.append({
+                "interestId":      interest["interestId"],
+                "propertyId":      property_id,
+                "propertyTitle":   property_data.get("title"),
+                "propertyAddress": property_data.get("address"),
+                "rentPerMonth":    property_data.get("rent_per_month"),
+                "groupId":         group_id,
+                "matchedAt":       interest.get("matchedAt"),
+                "seenAt":          interest.get("seenAt"),        # null = unseen = counts toward badge
+                "matchedFlatmates": matched_profiles,
+            })
+
+        unseen_count = sum(1 for m in matches_payload if not m.get("seenAt"))
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "userId":      user_id,
+                "unseenCount": unseen_count,   # <-- this is your badge number
+                "totalMatches": len(matches_payload),
+                "matches":     matches_payload,
+            }
+        }), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@matching_bp.route('/api/user/<string:user_id>/matches/seen', methods=['PATCH'])
+def mark_matches_seen(user_id):
+    """
+    Called by the frontend when the user opens the matches tab.
+    Sets seenAt on all unseen matched interests → badge goes back to 0.
+    """
+    if request.user['userId'] != user_id:
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    try:
+        interests_table = get_interests_table()
+
+        all_user_interests = get_user_interests(interests_table, user_id)
+        unseen_matched = [
+            i for i in all_user_interests
+            if i.get("status") == "matched" and not i.get("seenAt")
+        ]
+
+        now = datetime.now(timezone.utc).isoformat()
+        for interest in unseen_matched:
+            mark_interest_seen(interests_table, interest["interestId"], now)
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "markedSeen": len(unseen_matched),
+                "seenAt":     now,
+            }
         }), 200
 
     except Exception as e:
