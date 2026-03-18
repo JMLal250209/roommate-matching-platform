@@ -746,3 +746,23 @@ def mark_matches_seen(user_id):
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+    
+@matching_bp.route('/api/users/<string:user_id>', methods=['GET'])
+def get_user_profile(user_id):
+    try:
+        users_table = get_users_table()
+        user = get_user(users_table, user_id)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+        safe_user = {
+            "userId":           user["userId"],
+            "name":             user.get("name"),
+            "animal_archetype": user.get("animal_archetype"),
+            "profile": {
+                k: v for k, v in (user.get("profile") or {}).items()
+                if k not in ("email", "phone")
+            }
+        }
+        return jsonify({"success": True, "data": safe_user}), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500

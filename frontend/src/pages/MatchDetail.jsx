@@ -15,6 +15,7 @@ function scoreColour(score) {
 export default function MatchDetail() {
   const navigate = useNavigate();
   const { state } = useLocation();
+  const { interestId } = useParams();
   const match = state?.match;
 
   if (!match) {
@@ -37,7 +38,6 @@ export default function MatchDetail() {
     <div className="min-h-screen bg-slate-100 px-6 py-10">
       <div className="w-full max-w-2xl mx-auto space-y-6">
 
-        {/* Back */}
         <button
           onClick={() => navigate("/matches")}
           className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800"
@@ -88,7 +88,9 @@ export default function MatchDetail() {
             </button>
 
             <button
-              onClick={() => document.getElementById("profiles-section")?.scrollIntoView({ behavior: "smooth" })}
+              onClick={() => navigate(`/matches/${match.interestId}/profiles`, {
+                state: { flatmates: match.matchedFlatmates, match }
+              })}
               className="flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-medium text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 transition-all"
             >
               <span className="text-2xl">👥</span>
@@ -97,7 +99,7 @@ export default function MatchDetail() {
           </div>
         </div>
 
-        {/* Flatmates */}
+        {/* Flatmates list */}
         <div id="profiles-section" className="rounded-2xl bg-white border border-slate-200 shadow-sm p-8">
           <h2 className="text-lg font-bold text-slate-900 mb-5">Your flatmates</h2>
 
@@ -136,7 +138,9 @@ export default function MatchDetail() {
                       {flatmate.compatibilityScore}%
                     </span>
                     <button
-                      onClick={() => navigate(`/profile/${flatmate.userId}`)}
+                      onClick={() => navigate(`/profile/${flatmate.userId}`, {
+                        state: { flatmate }  // pass data so detail page doesn't need to fetch
+                      })}
                       className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                     >
                       View profile
