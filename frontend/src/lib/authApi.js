@@ -1,10 +1,20 @@
 import { request } from "./api";
 
 export async function signup({ email, password, name }) {
-  const payload = await request("POST", "/api/auth/signup", {
-    body: { email, password, name },
-  });
-  return payload?.data || null;
+   try {
+    const payload = await request("POST", "/api/auth/signup", {
+      body: { email, password, name },
+    });
+    return payload?.data || null;
+  } catch (err) {
+    let message = err?.message || "Signup failed";
+
+    if (message.includes("PreSignUp failed with error")) {
+      message = message.split("PreSignUp failed with error")[1].trim();
+    }
+
+    throw new Error(message);
+  }
 }
 
 export async function login({ email, password }) {
