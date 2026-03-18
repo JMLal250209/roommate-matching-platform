@@ -13,6 +13,8 @@ import FellowAnimalProfiles from "./pages/FellowAnimalProfiles.jsx";
 import FellowAnimalProfileView from "./pages/FellowAnimalProfileView.jsx";
 import LandingPage from "./LandingPage.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
+import Matches from "./Matches.jsx";
+import MatchDetail from "./pages/MatchDetail.jsx";
 
 export default function App() {
   const { isAuthenticated } = useAuth();
@@ -34,6 +36,8 @@ export default function App() {
       <Route path="/landing/others/:profileId" element={<FellowAnimalProfileView />} />
       <Route path="/house1/details" element={<PropertyDetails />} />
       <Route path="/green" element={<GreenPage />} />
+      <Route path="/matches" element={<Matches />} />
+      <Route path="/matches/:interestId" element={<MatchDetail />} />
     </Routes>
   );
 }
