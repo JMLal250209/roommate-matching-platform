@@ -21,7 +21,6 @@ export async function registerPropertyInterest(propertyId, budget) {
       body: budget ? { budget } : {},
     }
   );
-
   return payload?.data || null;
 }
 
@@ -40,5 +39,13 @@ export async function getUserMatchForProperty(userId, propertyId) {
     `/api/match/user/${encodeURIComponent(userId)}/property/${encodeURIComponent(propertyId)}`,
     { auth: true }
   );
+  return payload?.data || null;
+}
+
+export async function withdrawPropertyInterest(propertyId) {
+  const payload = await request("POST", "/api/interests/withdraw", {
+    auth: true,
+    body: { propertyId },
+  });
   return payload?.data || null;
 }
