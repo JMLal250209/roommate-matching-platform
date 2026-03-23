@@ -12,6 +12,7 @@ import LandingPage from "./LandingPage.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import Matches from "./Matches.jsx";
 import MatchDetail from "./pages/MatchDetail.jsx";
+import MatchChat from "./pages/MatchChat.jsx";
 import MatchedProfileView from "./pages/MatchedProfileView.jsx";
 import MatchProfiles from "./pages/MatchProfiles";
 
@@ -35,6 +36,7 @@ export default function App() {
       <Route path="/green" element={<GreenPage />} />
       <Route path="/matches" element={<Matches />} />
       <Route path="/matches/:interestId" element={<MatchDetail />} />
+      <Route path="/matches/:interestId/chat" element={<MatchChat />} />
       <Route path="/profile/:userId" element={<MatchedProfileView />} />
       <Route path="/matches/:interestId/profiles" element={<MatchProfiles />} />
     </Routes>
