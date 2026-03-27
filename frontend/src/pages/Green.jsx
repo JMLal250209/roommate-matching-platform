@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logoImg from '../assets/logo.jpeg';
+import { API_BASE_URL } from '../lib/api';
 
 /* ── Animated counter that counts up when triggered ─────────────────── */
 function AnimatedCounter({ value, suffix = '', prefix = '', decimals = 0, triggered, duration = 2000 }) {
@@ -106,6 +107,24 @@ export default function GreenPage() {
   const [statsVisible, setStatsVisible] = useState(false);
   const [barsVisible,  setBarsVisible]  = useState(false);
 
+  /* Live AWS metrics from backend */
+  const [liveStats, setLiveStats]     = useState([]);
+  const [liveLoading, setLiveLoading] = useState(true);
+  const [liveError, setLiveError]     = useState(null);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/green-stats?limit=7`)
+      .then(r => r.json())
+      .then(body => {
+        setLiveStats(body.data ?? []);
+        setLiveLoading(false);
+      })
+      .catch(() => {
+        setLiveError('Could not load live metrics.');
+        setLiveLoading(false);
+      });
+  }, []);
+
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
@@ -206,6 +225,121 @@ export default function GreenPage() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* ── Live AWS Metrics ───────────────────────────────────────────── */}
+        <div style={{
+          background: 'white', borderRadius: '20px', padding: '48px',
+          boxShadow: '0 2px 16px rgba(0,0,0,0.06)', marginBottom: '60px',
+          borderLeft: '6px solid #6366f1',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '12px' }}>
+            <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+              📡 Live AWS Usage Metrics
+            </h2>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              background: '#f0fdf4', color: '#15803d',
+              padding: '6px 14px', borderRadius: '999px', fontSize: '12px', fontWeight: '700',
+              border: '1px solid #bbf7d0',
+            }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+              Updated daily via Lambda + EventBridge
+            </span>
+          </div>
+          <p style={{ color: '#64748b', fontSize: '15px', marginBottom: '36px' }}>
+            Real metrics pulled from CloudWatch — Lambda invocations, compute duration, and estimated environmental impact.
+          </p>
+
+          {liveLoading && (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: '15px' }}>
+              Loading metrics…
+            </div>
+          )}
+
+          {liveError && !liveLoading && (
+            <div style={{
+              background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px',
+              padding: '20px 24px', color: '#dc2626', fontSize: '14px',
+            }}>
+              ⚠️ {liveError}
+            </div>
+          )}
+
+          {!liveLoading && !liveError && liveStats.length === 0 && (
+            <div style={{
+              background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '12px',
+              padding: '32px', textAlign: 'center', color: '#94a3b8', fontSize: '15px',
+            }}>
+              No data yet — the Lambda scheduler will populate this once it runs.
+            </div>
+          )}
+
+          {!liveLoading && liveStats.length > 0 && (() => {
+            const latest = liveStats[0];
+            return (
+              <>
+                {/* Latest snapshot cards */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '40px' }}>
+                  {[
+                    { icon: '⚡', label: 'Lambda Invocations', value: (latest.invocations ?? 0).toLocaleString(), sub: 'in the last 24 h', color: '#6366f1' },
+                    { icon: '⏱️', label: 'Total Duration', value: `${((latest.total_duration_ms ?? 0) / 1000).toFixed(1)} s`, sub: 'cumulative compute time', color: '#f59e0b' },
+                    { icon: '🖥️', label: 'GB-Seconds', value: (latest.gb_seconds ?? 0).toFixed(3), sub: 'memory × time', color: '#0891b2' },
+                    { icon: '🔋', label: 'Est. Energy', value: `${(latest.estimated_kwh ?? 0).toFixed(4)} kWh`, sub: 'estimated consumption', color: '#059669' },
+                    { icon: '🌿', label: 'CO₂ Equivalent', value: `${(latest.co2_kg ?? 0).toFixed(5)} kg`, sub: 'carbon emitted', color: '#16a34a' },
+                  ].map(card => (
+                    <div key={card.label} style={{
+                      flex: '1', minWidth: '160px',
+                      background: '#f8fafc', borderRadius: '14px', padding: '24px 20px',
+                      textAlign: 'center', border: `2px solid ${card.color}18`,
+                    }}>
+                      <div style={{ fontSize: '28px', marginBottom: '8px' }}>{card.icon}</div>
+                      <div style={{ fontSize: '22px', fontWeight: '800', color: card.color, letterSpacing: '-0.5px' }}>
+                        {card.value}
+                      </div>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', margin: '6px 0 2px' }}>{card.label}</div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>{card.sub}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 7-day trend table */}
+                <h3 style={{ fontSize: '17px', fontWeight: '700', color: '#0f172a', marginBottom: '16px' }}>
+                  📅 Last {liveStats.length} Day{liveStats.length !== 1 ? 's' : ''} — Trend
+                </h3>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ background: '#f1f5f9' }}>
+                        {['Date', 'Invocations', 'Duration (s)', 'GB-Seconds', 'kWh', 'CO₂ (kg)'].map(h => (
+                          <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: '700', color: '#475569', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {liveStats.map((row, i) => (
+                        <tr key={row.statId ?? i} style={{ borderBottom: '1px solid #e2e8f0', background: i % 2 === 0 ? 'white' : '#f8fafc' }}>
+                          <td style={{ padding: '10px 14px', color: '#0f172a', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                            {row.timestamp ? new Date(row.timestamp).toLocaleDateString('en-IE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                          </td>
+                          <td style={{ padding: '10px 14px', color: '#6366f1', fontWeight: '700' }}>{(row.invocations ?? 0).toLocaleString()}</td>
+                          <td style={{ padding: '10px 14px', color: '#f59e0b', fontWeight: '700' }}>{((row.total_duration_ms ?? 0) / 1000).toFixed(1)}</td>
+                          <td style={{ padding: '10px 14px', color: '#0891b2', fontWeight: '700' }}>{(row.gb_seconds ?? 0).toFixed(3)}</td>
+                          <td style={{ padding: '10px 14px', color: '#059669', fontWeight: '700' }}>{(row.estimated_kwh ?? 0).toFixed(4)}</td>
+                          <td style={{ padding: '10px 14px', color: '#16a34a', fontWeight: '700' }}>{(row.co2_kg ?? 0).toFixed(5)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style={{ marginTop: '20px', fontSize: '12px', color: '#94a3b8', lineHeight: '1.6' }}>
+                  Last updated: {latest.timestamp ? new Date(latest.timestamp).toLocaleString('en-IE') : 'unknown'}.
+                  Energy estimate uses the AWS Ireland (eu-west-1) grid carbon intensity factor of 0.316 kg CO₂/kWh.
+                </div>
+              </>
+            );
+          })()}
         </div>
 
         {/* ── The Decision ───────────────────────────────────────────────── */}
