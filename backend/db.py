@@ -8,6 +8,7 @@ from matching_algorithm import assign_animal_archetype
 USERS_TABLE_NAME = "HousemateAppUsers"
 INTERESTS_TABLE_NAME = "HousemateAppInterests"
 PROPERTIES_TABLE_NAME = "Houses"
+MESSAGES_TABLE_NAME = "HousemateAppMessages"
 GREEN_STATS_TABLE_NAME = "GreenComputingStats"
 
 dynamodb = boto3.resource("dynamodb")
@@ -397,6 +398,58 @@ def withdraw_interest(interests_table, interest_id):
 
 
 # =========================
+# CHAT MESSAGES TABLE
+# =========================
+
+def _create_messages_table():
+    """Create the chat messages table grouped by matched group ID."""
+    dynamodb_client.create_table(
+        TableName=MESSAGES_TABLE_NAME,
+        KeySchema=[
+            {"AttributeName": "groupId", "KeyType": "HASH"},
+            {"AttributeName": "sentAt", "KeyType": "RANGE"},
+        ],
+        AttributeDefinitions=[
+            {"AttributeName": "groupId", "AttributeType": "S"},
+            {"AttributeName": "sentAt", "AttributeType": "S"},
+        ],
+        BillingMode="PAY_PER_REQUEST",
+    )
+
+
+def get_messages_table():
+    """Get reference to chat messages table."""
+    return dynamodb.Table(MESSAGES_TABLE_NAME)
+
+
+def list_group_messages(messages_table, group_id, limit=100):
+    """Return chat messages for a matched group, oldest first."""
+    resp = messages_table.query(
+        KeyConditionExpression=Key("groupId").eq(group_id),
+        ScanIndexForward=True,
+        Limit=max(1, min(int(limit or 100), 200)),
+    )
+    return [_deserialize(item) for item in resp.get("Items", [])]
+
+
+def create_group_message(messages_table, group_id, sender_id, sender_name, message_text):
+    """Persist a single chat message for a matched group."""
+    created_at = datetime.now(timezone.utc).isoformat()
+    message_id = str(uuid.uuid4())
+    item = {
+        "groupId": group_id,
+        "sentAt": f"{created_at}#{message_id}",
+        "messageId": message_id,
+        "createdAt": created_at,
+        "senderId": sender_id,
+        "senderName": sender_name or "Unknown user",
+        "message": message_text,
+    }
+    messages_table.put_item(Item=item)
+    return _deserialize(item)
+
+
+# =========================
 # GREEN COMPUTING STATS TABLE
 # =========================
 
@@ -441,8 +494,6 @@ def get_latest_green_stats(table, limit=7):
         Limit=limit,
     )
     return [_deserialize(item) for item in resp.get("Items", [])]
-
-
 # =========================
 # CREATE TABLES IF NOT EXISTS
 # =========================
@@ -462,6 +513,10 @@ def create_tables_if_not_exist():
     if PROPERTIES_TABLE_NAME not in existing_tables:
         print(f"Creating table: {PROPERTIES_TABLE_NAME}")
         _create_properties_table()
+
+    if MESSAGES_TABLE_NAME not in existing_tables:
+        print(f"Creating table: {MESSAGES_TABLE_NAME}")
+        _create_messages_table()
 
     if GREEN_STATS_TABLE_NAME not in existing_tables:
         print(f"Creating table: {GREEN_STATS_TABLE_NAME}")

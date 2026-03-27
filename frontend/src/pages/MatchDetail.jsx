@@ -80,7 +80,9 @@ export default function MatchDetail() {
             </button>
 
             <button
-              onClick={() => alert("Chat coming soon!")}
+              onClick={() => navigate(`/matches/${match.interestId || interestId}/chat`, {
+                state: { match }
+              })}
               className="flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-medium text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 transition-all"
             >
               <span className="text-2xl">💬</span>

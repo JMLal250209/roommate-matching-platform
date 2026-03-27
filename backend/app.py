@@ -14,6 +14,7 @@ from routes.interests import interests_bp
 from routes.matching import matching_bp
 from routes.info import info_bp
 from routes.auth import auth_bp
+from routes.chat import chat_bp
 from routes.green import green_bp
 
 HOUSES_PHOTOS_DIR = os.path.abspath(
@@ -62,6 +63,7 @@ def create_app(testing=False):
     app.register_blueprint(matching_bp)
     app.register_blueprint(info_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(chat_bp)
     app.register_blueprint(green_bp)
     app.register_blueprint(debug_bp)
 
@@ -124,6 +126,7 @@ def create_app(testing=False):
                 "properties": "/api/properties",
                 "interests": "/api/interests",
                 "matching": "/api/match",
+                "chat": "/api/chat/interest/<interestId>/messages",
                 "info": "/api/animals",
             },
         }), 200

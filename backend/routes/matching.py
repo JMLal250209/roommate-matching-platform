@@ -491,17 +491,14 @@ def get_user_property_interests(user_id):
             required_roommates = property_data.get("required_roommates", 2)
             total_interested   = len(other_user_ids) + 1
 
-            # Calculate compatibility only when enough people are present
-            compatible = []
-            if total_interested >= required_roommates:
-                other_users = []
-                for uid in other_user_ids:
-                    other_user = get_user(users_table, uid)
-                    if other_user:
-                        other_users.append(other_user)
+            other_users = []
+            for uid in other_user_ids:
+                other_user = get_user(users_table, uid)
+                if other_user:
+                    other_users.append(other_user)
 
-                matches    = find_matches_for_property(user, other_users)
-                compatible = [m for m in matches if m["compatibility_score"] >= 60]
+            matches = find_matches_for_property(user, other_users) if other_users else []
+            compatible = [m for m in matches if m["compatibility_score"] >= 60]
 
             interests_with_matches.append({
                 "interestId":        interest["interestId"],
