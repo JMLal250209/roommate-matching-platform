@@ -9,6 +9,7 @@ USERS_TABLE_NAME = "HousemateAppUsers"
 INTERESTS_TABLE_NAME = "HousemateAppInterests"
 PROPERTIES_TABLE_NAME = "Houses"
 MESSAGES_TABLE_NAME = "HousemateAppMessages"
+GREEN_STATS_TABLE_NAME = "GreenComputingStats"
 
 dynamodb = boto3.resource("dynamodb")
 dynamodb_client = boto3.client("dynamodb")
@@ -449,6 +450,51 @@ def create_group_message(messages_table, group_id, sender_id, sender_name, messa
 
 
 # =========================
+# GREEN COMPUTING STATS TABLE
+# =========================
+
+def _create_green_stats_table():
+    """Create GreenComputingStats table with period+timestamp GSI for querying trends"""
+    dynamodb_client.create_table(
+        TableName=GREEN_STATS_TABLE_NAME,
+        KeySchema=[{"AttributeName": "statId", "KeyType": "HASH"}],
+        AttributeDefinitions=[
+            {"AttributeName": "statId", "AttributeType": "S"},
+            {"AttributeName": "period", "AttributeType": "S"},
+            {"AttributeName": "timestamp", "AttributeType": "S"},
+        ],
+        GlobalSecondaryIndexes=[
+            {
+                "IndexName": "PeriodTimestampIndex",
+                "KeySchema": [
+                    {"AttributeName": "period", "KeyType": "HASH"},
+                    {"AttributeName": "timestamp", "KeyType": "RANGE"},
+                ],
+                "Projection": {"ProjectionType": "ALL"},
+            }
+        ],
+        BillingMode="PAY_PER_REQUEST",
+    )
+
+
+def get_green_stats_table():
+    """Get reference to GreenComputingStats table"""
+    return dynamodb.Table(GREEN_STATS_TABLE_NAME)
+
+
+def get_latest_green_stats(table, limit=7):
+    """
+    Query the most recent daily stats records (up to `limit` items).
+    Returns records sorted newest-first.
+    """
+    resp = table.query(
+        IndexName="PeriodTimestampIndex",
+        KeyConditionExpression=Key("period").eq("daily"),
+        ScanIndexForward=False,
+        Limit=limit,
+    )
+    return [_deserialize(item) for item in resp.get("Items", [])]
+# =========================
 # CREATE TABLES IF NOT EXISTS
 # =========================
 
@@ -471,6 +517,10 @@ def create_tables_if_not_exist():
     if MESSAGES_TABLE_NAME not in existing_tables:
         print(f"Creating table: {MESSAGES_TABLE_NAME}")
         _create_messages_table()
+
+    if GREEN_STATS_TABLE_NAME not in existing_tables:
+        print(f"Creating table: {GREEN_STATS_TABLE_NAME}")
+        _create_green_stats_table()
 
 
 # =========================

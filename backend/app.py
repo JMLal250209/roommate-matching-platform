@@ -15,6 +15,7 @@ from routes.matching import matching_bp
 from routes.info import info_bp
 from routes.auth import auth_bp
 from routes.chat import chat_bp
+from routes.green import green_bp
 
 HOUSES_PHOTOS_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "HousesPhotos")
@@ -63,6 +64,7 @@ def create_app(testing=False):
     app.register_blueprint(info_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(chat_bp)
+    app.register_blueprint(green_bp)
     app.register_blueprint(debug_bp)
 
     # ---------------- Public Routes ----------------
@@ -75,6 +77,7 @@ def create_app(testing=False):
         '/api/auth/confirm',
         '/api/auth/login',
         '/api/auth/refresh',
+        '/api/green-stats',
         '/debug/dynamodb'
     }
 
